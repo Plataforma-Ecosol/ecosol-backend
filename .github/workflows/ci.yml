@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ecosol
+          POSTGRES_USER: ecosol
+          POSTGRES_PASSWORD: ecosol
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ecosol"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SECRET_KEY: ci-secret-key
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DATABASE_URL: postgres://ecosol:ecosol@localhost:5432/ecosol
+      DJANGO_DB_POOLER: "False"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Checar migrations em dia
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Testes (pytest)
+        run: pytest
