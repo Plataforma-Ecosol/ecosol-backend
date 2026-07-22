@@ -1,0 +1,10 @@
+# Produção — versões fixadas na última estável compatível (PRD 2).
+Django>=5.2,<5.3
+djangorestframework>=3.16
+django-filter>=24.3
+psycopg[binary]>=3.2
+django-storages>=1.14
+boto3>=1.35
+Pillow>=11.0
+gunicorn>=23.0
+django-environ>=0.11
