@@ -160,5 +160,6 @@ REST_FRAMEWORK = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# AUTH_USER_MODEL (usuário customizado) entra no PR 2, antes de qualquer outro
-# model, para não travar o esquema depois.
+# AUTH_USER_MODEL (usuário customizado): primeira migration do app `rede`,
+# antes de qualquer outro model, para não travar o esquema depois (PRD 5).
+AUTH_USER_MODEL = "rede.Usuario"
