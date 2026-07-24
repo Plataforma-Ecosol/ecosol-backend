@@ -23,7 +23,7 @@ class Coletivo(models.Model):
     # --- Identificação pública ---------------------------------------------
     nome = models.CharField("nome", max_length=200)
     slug = models.SlugField(
-        "slug", max_length=220, unique=True, db_index=True,
+        "slug", max_length=220, unique=True,
         help_text="Usado na URL de detalhe (ex.: sementes-do-vale).",
     )
     descricao = models.TextField("descrição", blank=True)

@@ -9,7 +9,7 @@ class Evento(models.Model):
     """
 
     titulo = models.CharField("título", max_length=200)
-    slug = models.SlugField("slug", max_length=220, unique=True, db_index=True)
+    slug = models.SlugField("slug", max_length=220, unique=True)
     descricao = models.TextField("descrição", blank=True)
     data_inicio = models.DateTimeField("data de início")
     data_fim = models.DateTimeField("data de fim", null=True, blank=True)
@@ -24,6 +24,13 @@ class Evento(models.Model):
         verbose_name = "evento"
         verbose_name_plural = "eventos"
         ordering = ["-data_inicio"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(data_fim__isnull=True)
+                | models.Q(data_fim__gte=models.F("data_inicio")),
+                name="evento_data_fim_apos_inicio",
+            ),
+        ]
 
     def __str__(self):
         return self.titulo

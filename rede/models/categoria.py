@@ -12,7 +12,7 @@ class Categoria(models.Model):
 
     nome = models.CharField("nome", max_length=120)
     slug = models.SlugField(
-        "slug", max_length=140, unique=True, db_index=True,
+        "slug", max_length=140, unique=True,
         help_text="Identificador único, gerado a partir do nome.",
     )
 

@@ -1,4 +1,5 @@
 """Ponto de Interesse — a única entidade georreferenciada publicamente."""
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -23,9 +24,11 @@ class PontoDeInteresse(models.Model):
     descricao = models.TextField("descrição", blank=True)
     latitude = models.DecimalField(
         "latitude", max_digits=9, decimal_places=6,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
     )
     longitude = models.DecimalField(
         "longitude", max_digits=9, decimal_places=6,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
     )
     endereco = models.CharField(
         "endereço", max_length=255, blank=True,
