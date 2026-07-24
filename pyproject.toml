@@ -1,6 +1,9 @@
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Migrations são geradas pelo Django (makemigrations) e não seguem o
+# line-length; não faz sentido lintar código gerado.
+extend-exclude = ["**/migrations/**"]
 
 [tool.ruff.lint]
 # E/F = pyflakes+pycodestyle, I = isort, UP = pyupgrade,
