@@ -1,11 +1,11 @@
 """Rotas do projeto.
 
-As rotas da API pública (/api/coletivos/) entram no PR 5.
-Por ora, temos o Django Admin e um healthcheck simples.
+Django Admin, healthcheck e a API pública somente leitura sob `/api/`
+(as rotas do app `rede` ficam em `rede/urls.py`).
 """
 from django.contrib import admin
 from django.http import JsonResponse
-from django.urls import path
+from django.urls import include, path
 
 
 def healthcheck(_request):
@@ -16,4 +16,5 @@ def healthcheck(_request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", healthcheck, name="health"),
+    path("api/", include("rede.urls")),
 ]

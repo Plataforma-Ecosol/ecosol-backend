@@ -51,6 +51,53 @@ Rodar migrations contra o Supabase:
 $env:DJANGO_DB_DIRECT="True"; python manage.py migrate
 ```
 
+## API pública
+
+Somente leitura (`GET`) e sem autenticação. Chaves em `snake_case`, datas em
+ISO 8601, listas com o envelope do DRF (`count`, `next`, `previous`,
+`results`).
+
+| Rota | Descrição |
+|---|---|
+| `GET /api/coletivos/` | Lista paginada dos coletivos **ativos** |
+| `GET /api/coletivos/{slug}/` | Detalhe de um coletivo, buscado pelo slug |
+
+### Parâmetros da listagem
+
+| Parâmetro | Tipo | Comportamento |
+|---|---|---|
+| `q` | string | Busca textual, ignorando maiúsculas, em `nome` e `descricao` |
+| `categoria` | int | Filtra pelo id de uma categoria. Valor não numérico → `400` |
+| `bairro` | string | Filtra por bairro, ignorando maiúsculas |
+| `ordering` | string | `nome`, `-nome`, `criado_em`, `-criado_em`. Padrão: `nome` |
+| `page` | int | Número da página (padrão 1). Página fora da faixa → `404` |
+| `page_size` | int | Itens por página (padrão 20, **máximo 100**) |
+
+`ativo` **não** é parâmetro: é a chave de visibilidade pública, com que a
+equipe do Centro Público tira um coletivo do ar. Aceitá-lo permitiria listar
+justamente o que se decidiu não exibir.
+
+### Campos da resposta
+
+`id`, `nome`, `slug`, `descricao`, `bairro`, `site`, `categorias`
+(lista de `{id, nome, slug}`), `criado_em`, `atualizado_em` — e, quando houver
+consentimento, `telefone`, `email` e `instagram`.
+
+### Duas regras de exposição
+
+1. **Omissão por consentimento.** `telefone`, `email` e `instagram` só entram
+   na resposta se a flag correspondente estiver ligada. Sem consentimento a
+   **chave é removida** do JSON: não vem `null`, não vem string vazia. No
+   cliente, o tipo é `telefone?: string`, e não `string | null`.
+2. **`301` de slug antigo.** Trocar o slug de um coletivo não quebra os links
+   já publicados: o endereço antigo responde `301` com `Location` na URL
+   canônica. Vale só para coletivo ativo — slug antigo de coletivo inativo
+   responde `404`, como qualquer slug inexistente.
+
+Nenhum dado de Pessoa, endereço, dado cadastral ou flag de consentimento é
+exposto por qualquer caminho. `bairro` é o único dado geográfico público.
+Isso é garantido por uma suíte de regressão de LGPD, bloqueante no CI.
+
 ## Testes e lint
 
 ```bash
