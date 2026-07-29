@@ -1,14 +1,20 @@
-"""Histórico de slugs do Coletivo (PRD Seção 5 e itens 17, 21 e 23 da 8.3).
+"""Histórico de slugs do Coletivo (PRD Seção 5 e itens 17 a 23 da Seção 8.3).
 
-Aqui só o comportamento de model: quando a troca de slug vira registro e
-quando NÃO vira. O comportamento HTTP (301, 404 de inativo) é testado na
-suíte de API, junto do restante do contrato.
+A primeira metade cobre o model: quando a troca de slug vira registro e quando
+NÃO vira. A segunda cobre o que o usuário final sente — o link publicado num
+cartaz continua abrindo o perfil certo, com 301 para a URL canônica.
 """
 import pytest
+from rest_framework.test import APIClient
 
 from rede.models import Coletivo, ColetivoSlugAnterior
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def api():
+    return APIClient()
 
 
 def test_trocar_o_slug_registra_o_slug_antigo():
@@ -79,3 +85,74 @@ def test_str_do_historico_mostra_o_caminho_do_redirect():
 
     historico = ColetivoSlugAnterior.objects.get(slug="atelie")
     assert str(historico) == "atelie → atelie-coletivo"
+
+
+# --- Comportamento HTTP -----------------------------------------------------
+
+
+def test_slug_antigo_responde_301_para_a_url_canonica(api):
+    """(18) O endereço antigo responde 301, com `Location` na URL canônica.
+
+    301, e não 302: é o que faz o buscador consolidar no endereço novo a
+    autoridade do antigo, em vez de indexar duplicata.
+    """
+    coletivo = Coletivo.objects.create(nome="Sementes do Vale", slug="sementes")
+    coletivo.slug = "sementes-do-vale"
+    coletivo.save()
+
+    resposta = api.get("/api/coletivos/sementes/")
+
+    assert resposta.status_code == 301
+    assert resposta.headers["Location"].endswith("/api/coletivos/sementes-do-vale/")
+
+
+def test_seguir_o_redirect_chega_ao_coletivo_certo(api):
+    """(19) Seguindo o 301 chega-se ao perfil, com 200 — o link publicado não quebra."""
+    coletivo = Coletivo.objects.create(nome="Sementes do Vale", slug="sementes")
+    coletivo.slug = "sementes-do-vale"
+    coletivo.save()
+
+    resposta = api.get("/api/coletivos/sementes/", follow=True)
+
+    assert resposta.status_code == 200
+    assert resposta.json()["slug"] == "sementes-do-vale"
+    assert resposta.json()["nome"] == "Sementes do Vale"
+
+
+def test_slug_antigo_de_coletivo_inativo_responde_404(api):
+    """(20) O histórico NÃO fura a regra de visibilidade.
+
+    Se a equipe tirou o coletivo do ar, nem o endereço atual nem o antigo
+    podem servir de porta dos fundos.
+    """
+    coletivo = Coletivo.objects.create(nome="Fora do Ar", slug="antigo")
+    coletivo.slug = "fora-do-ar"
+    coletivo.ativo = False
+    coletivo.save()
+
+    assert api.get("/api/coletivos/antigo/").status_code == 404
+    assert api.get("/api/coletivos/fora-do-ar/").status_code == 404
+
+
+def test_vaivem_volta_a_responder_200_sem_redirect(api):
+    """(21) a → b → a: `/api/coletivos/a/` volta a responder 200 direto, sem 301."""
+    coletivo = Coletivo.objects.create(nome="Horta Comunitária", slug="horta")
+    coletivo.slug = "horta-comunitaria"
+    coletivo.save()
+    assert api.get("/api/coletivos/horta/").status_code == 301
+
+    coletivo.slug = "horta"
+    coletivo.save()
+
+    resposta = api.get("/api/coletivos/horta/")
+    assert resposta.status_code == 200
+    assert resposta.json()["slug"] == "horta"
+    # E o endereço intermediário passa a ser o que redireciona.
+    assert api.get("/api/coletivos/horta-comunitaria/").status_code == 301
+
+
+def test_slug_nunca_usado_responde_404(api):
+    """(22) Slug que nunca existiu é 404 — o histórico não inventa redirect."""
+    Coletivo.objects.create(nome="Feira Central", slug="feira-central")
+
+    assert api.get("/api/coletivos/nunca-existiu/").status_code == 404
