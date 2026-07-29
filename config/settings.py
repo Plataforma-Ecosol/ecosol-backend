@@ -154,8 +154,12 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 20,
+    # Paginação global (PRD 9.1): `page_size` 20, teto de 100 — o `PAGE_SIZE`
+    # do DRF fica na própria classe, e não aqui.
+    "DEFAULT_PAGINATION_CLASS": "rede.pagination.PaginacaoPadrao",
+    # O contrato público chama a busca textual de `q` (o padrão do DRF é
+    # `search`).
+    "SEARCH_PARAM": "q",
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
