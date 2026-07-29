@@ -6,7 +6,7 @@ Organizados em pacote (PRD 6.7) e reexportados aqui para que
 depois os models de domínio (PR B).
 """
 from rede.models.categoria import Categoria
-from rede.models.coletivo import Coletivo
+from rede.models.coletivo import Coletivo, ColetivoSlugAnterior
 from rede.models.evento import Evento, ImagemEvento
 from rede.models.pessoa import Pessoa
 from rede.models.ponto_interesse import PontoDeInteresse
@@ -16,6 +16,7 @@ __all__ = [
     "Usuario",
     "Categoria",
     "Coletivo",
+    "ColetivoSlugAnterior",
     "Pessoa",
     "Evento",
     "ImagemEvento",

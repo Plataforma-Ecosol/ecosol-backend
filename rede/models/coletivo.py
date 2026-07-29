@@ -1,5 +1,5 @@
 """Coletivo — o nó central da rede da Economia Solidária."""
-from django.db import models
+from django.db import models, transaction
 
 
 class Coletivo(models.Model):
@@ -95,3 +95,57 @@ class Coletivo(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def save(self, *args, **kwargs):
+        """Salva o coletivo e registra o slug anterior quando ele muda.
+
+        O slug é a identidade pública do coletivo — é o que vai no cartaz, no
+        WhatsApp e no índice do buscador. Quem edita o slug no back-office não
+        precisa saber que este histórico existe: a troca é registrada aqui, e a
+        API responde 301 do endereço antigo para o novo.
+        """
+        slug_antigo = (
+            Coletivo.objects.filter(pk=self.pk).values_list("slug", flat=True).first()
+            if self.pk
+            else None
+        )
+        with transaction.atomic():
+            # O slug atual sempre vence o histórico: se este slug já foi de
+            # alguém (inclusive deste mesmo coletivo, num vaivém a→b→a), a
+            # entrada antiga sai para não haver dois donos do mesmo slug.
+            ColetivoSlugAnterior.objects.filter(slug=self.slug).delete()
+            super().save(*args, **kwargs)
+            if slug_antigo and slug_antigo != self.slug:
+                ColetivoSlugAnterior.objects.update_or_create(
+                    slug=slug_antigo, defaults={"coletivo": self},
+                )
+
+
+class ColetivoSlugAnterior(models.Model):
+    """Slug que um coletivo já usou — garante estabilidade dos links publicados.
+
+    Um slug corrigido no back-office não pode transformar em 404 os endereços
+    que já circulam. Com o histórico, a API responde 301 para a URL canônica, e
+    o buscador consolida no endereço novo a autoridade do antigo.
+
+    O histórico NÃO fura a regra de visibilidade: slug antigo de coletivo
+    inativo continua respondendo 404 (a poda é feita na view).
+    """
+
+    coletivo = models.ForeignKey(
+        "rede.Coletivo", on_delete=models.CASCADE, related_name="slugs_anteriores",
+        verbose_name="coletivo",
+    )
+    slug = models.SlugField(
+        "slug anterior", max_length=220, unique=True,
+        help_text="Único — um slug jamais aponta para dois coletivos.",
+    )
+    criado_em = models.DateTimeField("criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "slug anterior de coletivo"
+        verbose_name_plural = "slugs anteriores de coletivos"
+        ordering = ["-criado_em"]
+
+    def __str__(self):
+        return f"{self.slug} → {self.coletivo.slug}"
