@@ -126,6 +126,14 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# --- Arquivos de mídia (uploads) -------------------------------------------
+# Em produção/homologação o upload vai para o Supabase Storage (bloco S3
+# abaixo, DJANGO_USE_S3=True). No ambiente local do docker-compose (sem S3) os
+# arquivos vão para o sistema de arquivos e são servidos só em DEBUG (ver
+# config/urls.py). Sem isto, salvar uma imagem no Admin quebra localmente.
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 # --- Storage de imagens (Supabase Storage, S3-compatível) — PRD 3.3 --------
 # Já configurado nesta fase; passa a ser usado por imagens de Evento e capa de
 # Ponto de Interesse a partir do PR 3/4. Só ativa se DJANGO_USE_S3=True.
