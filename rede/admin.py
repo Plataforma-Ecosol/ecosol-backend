@@ -18,7 +18,16 @@ from django.db.models import Count
 from django.urls import reverse
 from django.utils.html import format_html
 
-from rede.models import Categoria, Coletivo, ColetivoSlugAnterior, Pessoa, Usuario
+from rede.models import (
+    Categoria,
+    Coletivo,
+    ColetivoSlugAnterior,
+    Evento,
+    ImagemEvento,
+    Pessoa,
+    PontoDeInteresse,
+    Usuario,
+)
 
 # --- Identidade da área administrativa -------------------------------------
 admin.site.site_header = "Plataforma Ecosol — Rede da Economia Solidária de Niterói"
@@ -307,5 +316,94 @@ class PessoaAdmin(admin.ModelAdmin):
                 ),
             },
         ),
+        ("Metadados", {"fields": ("criado_em", "atualizado_em")}),
+    )
+
+
+# --- Eventos ----------------------------------------------------------------
+class ImagemEventoInline(admin.TabularInline):
+    """Galeria de divulgação do evento.
+
+    São imagens públicas (cartaz, foto de divulgação) — não dado pessoal. A
+    miniatura evita o erro clássico de subir a imagem errada e só descobrir
+    depois de publicada.
+    """
+
+    model = ImagemEvento
+    extra = 1
+    fields = ("imagem", "previa", "legenda", "ordem")
+    readonly_fields = ("previa",)
+
+    @admin.display(description="prévia")
+    def previa(self, obj):
+        """Miniatura da imagem já salva (vazio enquanto não há upload)."""
+        if not obj.pk or not obj.imagem:
+            return "—"
+        return format_html('<img src="{}" style="height: 60px;" />', obj.imagem.url)
+
+
+@admin.register(Evento)
+class EventoAdmin(admin.ModelAdmin):
+    """Agenda pública da Economia Solidária (feiras, encontros, formações)."""
+
+    list_display = ("titulo", "data_inicio", "data_fim", "ativo")
+    list_filter = ("ativo",)
+    date_hierarchy = "data_inicio"
+    search_fields = ("titulo", "descricao", "local", "bairro")
+    prepopulated_fields = {"slug": ("titulo",)}
+    readonly_fields = ("criado_em", "atualizado_em")
+    inlines = [ImagemEventoInline]
+
+    fieldsets = (
+        ("Identificação", {"fields": ("titulo", "slug", "descricao")}),
+        ("Quando", {"fields": ("data_inicio", "data_fim")}),
+        ("Onde", {"fields": ("local", "bairro")}),
+        ("Divulgação", {"fields": ("link",)}),
+        ("Controle", {"fields": ("ativo",)}),
+        ("Metadados", {"fields": ("criado_em", "atualizado_em")}),
+    )
+
+
+# --- Pontos de interesse ----------------------------------------------------
+@admin.register(PontoDeInteresse)
+class PontoDeInteresseAdmin(admin.ModelAdmin):
+    """O que aparece no mapa público.
+
+    Única entidade georreferenciada publicamente — latitude/longitude vivem só
+    aqui, nunca no Coletivo. Aqui o endereço PODE ser público, porque é ponto de
+    referência da Economia Solidária, não a sede de um coletivo.
+    """
+
+    list_display = ("nome", "tipo", "coletivo", "ativo")
+    list_filter = ("tipo", "ativo")
+    search_fields = ("nome", "endereco")
+    autocomplete_fields = ("coletivo",)
+    list_select_related = ("coletivo",)
+    readonly_fields = ("criado_em", "atualizado_em")
+
+    fieldsets = (
+        ("Identificação", {"fields": ("nome", "tipo", "descricao")}),
+        (
+            "Localização",
+            {
+                "fields": ("latitude", "longitude", "endereco"),
+                "description": (
+                    "Coordenadas em graus decimais (ex.: -22.883000, -43.103000). "
+                    "Podem ser copiadas do OpenStreetMap ou de outro mapa."
+                ),
+            },
+        ),
+        ("Imagem", {"fields": ("imagem_capa",)}),
+        (
+            "Vínculo",
+            {
+                "fields": ("coletivo",),
+                "description": (
+                    "Opcional — preencha apenas quando o ponto for a sede física de "
+                    "um coletivo já cadastrado."
+                ),
+            },
+        ),
+        ("Controle", {"fields": ("ativo",)}),
         ("Metadados", {"fields": ("criado_em", "atualizado_em")}),
     )
