@@ -22,7 +22,7 @@ docker compose up --build
 ```
 
 - App: http://localhost:8001/health/ → `{"status": "ok"}`
-- Admin: http://localhost:8001/admin/ (o superusuário entra no PR 2/4)
+- Admin: http://localhost:8001/admin/ (ver [Área administrativa](#área-administrativa))
 
 ## Rodar sem Docker (opcional)
 
@@ -97,6 +97,67 @@ consentimento, `telefone`, `email` e `instagram`.
 Nenhum dado de Pessoa, endereço, dado cadastral ou flag de consentimento é
 exposto por qualquer caminho. `bairro` é o único dado geográfico público.
 Isso é garantido por uma suíte de regressão de LGPD, bloqueante no CI.
+
+## Área administrativa
+
+O back-office da equipe do Centro Público, em **http://localhost:8001/admin/**.
+Substitui a planilha de cadastro por um formulário estruturado. Tudo em
+português; só entra quem tem conta — não há autocadastro.
+
+### Primeiro acesso
+
+Criar a conta inicial (uma vez, com o ambiente no ar):
+
+```bash
+cd infra
+docker compose exec backend python manage.py createsuperuser
+```
+
+As demais contas da equipe são criadas pelo próprio Admin, em **Usuários**. No
+MVP há um papel único (Administrador, com acesso completo); a granularidade por
+grupo do Django existe e pode ser ligada depois, sem código.
+
+### O que se administra
+
+| Entidade | Destaques da tela |
+|---|---|
+| **Coletivos** | Campos em blocos; `ativo` editável direto na listagem; categorias por seletor duplo; listas somente leitura de quem compõe o coletivo e dos endereços anteriores |
+| **Pessoas** | ~25 campos em blocos; bloco socioeconômico recolhido e rotulado como sensível; coletivo por autocomplete |
+| **Categorias** | Slug automático; coluna com o número de coletivos |
+| **Eventos** | Galeria de imagens inline com miniatura; navegação por data |
+| **Pontos de Interesse** | Latitude/longitude em graus decimais, imagem de capa, vínculo opcional com coletivo |
+| **Usuários** | Contas da equipe (formulário padrão do Django, com senha em hash) |
+
+### As regras de visibilidade que o Admin opera
+
+A API pública apenas **obedece** ao que se define aqui:
+
+- **`ativo`** decide se o coletivo existe para o público. Desligar tira da
+  listagem e faz o detalhe responder `404`.
+- **`situação`** é rótulo cadastral informativo e **independente** de `ativo`:
+  um coletivo pode estar "em transição" e continuar visível, ou "regular" e
+  fora do ar.
+- **`exibir_*_publicamente`** decide, contato a contato, se telefone, e-mail e
+  instagram saem no JSON público. Sem consentimento registrado, deixe
+  desmarcada — a chave some da resposta. Por isso cada contato aparece
+  imediatamente acima da sua flag, no mesmo bloco.
+- **Editar o slug** troca o endereço público, mas não quebra links: o endereço
+  antigo é registrado sozinho e passa a responder `301` para o novo.
+
+Endereço completo, dados cadastrais e **todos** os dados de Pessoa nunca são
+públicos, por nenhum caminho.
+
+> **Dados sensíveis.** O bloco socioeconômico e de identidade de Pessoa
+> (cor/raça, sexo, identidade de gênero, orientação sexual, deficiência, renda,
+> programas sociais) é editável na ficha, mas **nunca** vira coluna, filtro ou
+> busca da listagem — filtrar pessoas por atributo protegido transformaria o
+> cadastro em ferramenta de segmentação. Há teste automatizado bloqueando isso.
+
+### Imagens
+
+No ambiente local os uploads vão para `media/` (fora do Git) e são servidos pelo
+Django enquanto `DEBUG=True`. Em homologação e produção vão para o Supabase
+Storage, ligado por `DJANGO_USE_S3=True` — sem alteração de código.
 
 ## Testes e lint
 
