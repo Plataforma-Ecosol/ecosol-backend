@@ -60,6 +60,9 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+# Uploads do ambiente local (MEDIA_ROOT). Em produção as imagens ficam no
+# Supabase Storage — nada de mídia é versionado.
+media/
 
 # Flask stuff:
 instance/
