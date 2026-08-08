@@ -18,7 +18,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # --- Ambiente (.env) -------------------------------------------------------
 env = environ.Env(DJANGO_DEBUG=(bool, False))
 env_file = BASE_DIR / ".env"
-if env_file.exists():
+
+# O .env é a configuração da MÁQUINA do desenvolvedor e aponta para o Supabase
+# real. No docker-compose local o ambiente já vem inteiro pelas variáveis do
+# container, e ler o .env por cima abriria um vazamento silencioso: `read_env`
+# não sobrescreve o que já existe, mas *preenche as lacunas* — então toda
+# variável que o compose não declarasse (credenciais do Storage, por exemplo)
+# passaria a vir do Supabase, e o ambiente "isolado" deixaria de ser isolado.
+#
+# Por isso o compose liga DJANGO_IGNORE_DOTENV: o isolamento vira propriedade
+# do ambiente, e não uma lista de variáveis a manter em sincronia com o .env.
+IGNORE_DOTENV = env.bool("DJANGO_IGNORE_DOTENV", default=False)
+if env_file.exists() and not IGNORE_DOTENV:
     environ.Env.read_env(env_file)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-inseguro-troque-no-env")
