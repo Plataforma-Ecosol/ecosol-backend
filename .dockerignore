@@ -6,3 +6,8 @@ __pycache__/
 staticfiles/
 .pytest_cache/
 .ruff_cache/
+# Não fazem parte da imagem: orquestração, documentação e uploads locais.
+# Fora daqui, editar um PRD invalidaria o cache de build sem motivo.
+infra/
+docs/
+media/

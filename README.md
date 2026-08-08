@@ -11,6 +11,31 @@ Licença: GPLv3.
 - Python 3.12
 - Docker + Docker Compose (caminho recomendado para desenvolvimento)
 
+## Estrutura
+
+```
+ecosol-backend/
+├── config/     # settings, urls, wsgi/asgi
+├── rede/       # o domínio: models, serializers, views, admin
+├── tests/      # suíte, bloqueante no CI
+├── infra/      # docker-compose do ambiente de desenvolvimento local
+└── docs/       # PRDs, guia de revisão de PR e revisões arquivadas
+```
+
+`infra/` e `docs/` vivem aqui dentro de propósito: clonar o repositório tem de
+bastar para subir o sistema e entender por que ele é como é — é o que a
+reaplicabilidade prometida na Seção 7 do PRD Técnico exige. Enquanto estavam
+fora de qualquer repositório, essa promessa não se sustentava.
+
+### Documentação
+
+| Documento | O que traz |
+|---|---|
+| `docs/PRD/PRD_Tecnico_Ecosol_Niteroi_v4.1.md` | Arquitetura, modelo de dados, decisões e status. O documento mestre. |
+| `docs/PRD/PRD_Implementacao_*.md` | Especificação de cada fatia entregue (models, endpoint de Coletivos, Django Admin). |
+| `docs/GUIA_REVISAO_PR.md` | Como revisar um pull request neste projeto. |
+| `docs/revisoes/` | Revisões arquivadas. |
+
 ## Dois ambientes, separados de propósito
 
 | | **Local (Docker)** | **Supabase** |
@@ -34,10 +59,12 @@ nova ao `settings.py`, declare-a no compose se o ambiente local precisar dela.
 
 ### Local (Docker)
 
-O caminho recomendado para o dia a dia. A partir da raiz da umbrella:
+O caminho recomendado para o dia a dia. Clonar o repositório já basta — a
+orquestração vem junto, em `infra/`:
 
 ```bash
-cd infra
+git clone <url-do-ecosol-backend>
+cd ecosol-backend/infra
 docker compose up --build
 ```
 
@@ -46,8 +73,9 @@ docker compose up --build
 
 ### Supabase (sem Docker)
 
+Da raiz do repositório:
+
 ```powershell
-cd apps\ecosol-backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
