@@ -1,0 +1,53 @@
+# Ambiente de desenvolvimento local: backend + Postgres isolado em container.
+# Sobe tudo com um comando, SEM tocar o Supabase (PRD 8). A partir da pasta
+# infra/, rode:  docker compose up --build
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ecosol
+      POSTGRES_USER: ecosol
+      POSTGRES_PASSWORD: ecosol
+    ports:
+      - "5432:5432"
+    volumes:
+      - ecosol_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecosol"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      # A raiz do repositório, um nível acima desta pasta.
+      context: ..
+    command: >-
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8001"
+    environment:
+      # O ambiente local é FECHADO: tudo que o Django precisa está declarado
+      # aqui, e o .env do desenvolvedor — que aponta para o Supabase real — é
+      # ignorado. Sem isto, as variáveis não declaradas abaixo vazariam do .env
+      # para dentro do container (ver o comentário em config/settings.py).
+      DJANGO_IGNORE_DOTENV: "True"
+      DJANGO_DEBUG: "True"
+      DJANGO_SECRET_KEY: "dev-secret-nao-use-em-producao"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      # Aponta para o Postgres local do compose (não o Supabase).
+      DATABASE_URL: "postgres://ecosol:ecosol@db:5432/ecosol"
+      DJANGO_DB_POOLER: "False"
+      # Uploads vão para media/, servidos pelo Django enquanto DEBUG=True.
+      # Nenhuma imagem sai da máquina.
+      DJANGO_USE_S3: "False"
+    volumes:
+      # Código montado ao vivo: editar na máquina recarrega o servidor.
+      - ..:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  ecosol_pgdata:

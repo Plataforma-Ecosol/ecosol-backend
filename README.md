@@ -11,23 +11,71 @@ Licença: GPLv3.
 - Python 3.12
 - Docker + Docker Compose (caminho recomendado para desenvolvimento)
 
-## Subir o ambiente local (Docker)
+## Estrutura
 
-O jeito mais simples — Postgres isolado em container, sem tocar o Supabase.
-A partir da raiz da umbrella:
+```
+ecosol-backend/
+├── config/     # settings, urls, wsgi/asgi
+├── rede/       # o domínio: models, serializers, views, admin
+├── tests/      # suíte, bloqueante no CI
+├── infra/      # docker-compose do ambiente de desenvolvimento local
+└── docs/       # PRDs, guia de revisão de PR e revisões arquivadas
+```
+
+`infra/` e `docs/` vivem aqui dentro de propósito: clonar o repositório tem de
+bastar para subir o sistema e entender por que ele é como é — é o que a
+reaplicabilidade prometida na Seção 7 do PRD Técnico exige. Enquanto estavam
+fora de qualquer repositório, essa promessa não se sustentava.
+
+### Documentação
+
+| Documento | O que traz |
+|---|---|
+| `docs/PRD/PRD_Tecnico_Ecosol_Niteroi_v4.1.md` | Arquitetura, modelo de dados, decisões e status. O documento mestre. |
+| `docs/PRD/PRD_Implementacao_*.md` | Especificação de cada fatia entregue (models, endpoint de Coletivos, Django Admin). |
+| `docs/GUIA_REVISAO_PR.md` | Como revisar um pull request neste projeto. |
+| `docs/revisoes/` | Revisões arquivadas. |
+
+## Dois ambientes, separados de propósito
+
+| | **Local (Docker)** | **Supabase** |
+|---|---|---|
+| Como sobe | `cd infra && docker compose up` | `python manage.py runserver` na máquina |
+| Banco | Postgres 16 em container | Postgres gerenciado do Supabase |
+| Imagens | `media/`, na sua pasta | Supabase Storage |
+| Configuração | declarada no `docker-compose.yml` | lida do seu `.env` |
+| Para quê | desenvolver e testar à vontade | validar contra o ambiente real |
+
+O ambiente local é **fechado**: não toca o Supabase por nenhum caminho, nem
+banco nem imagem. Isso vale porque o compose liga `DJANGO_IGNORE_DOTENV=True`,
+e aí o `settings.py` não lê o seu `.env`.
+
+Não é preciosismo. O `read_env` do django-environ não sobrescreve o que já
+existe no ambiente, mas **preenche as lacunas** — sem essa trava, toda variável
+que o compose não declarasse (as credenciais do Storage, por exemplo) viria do
+`.env` para dentro do container, e o ambiente "isolado" mandaria os uploads
+para o Supabase de produção sem ninguém perceber. Ao acrescentar uma variável
+nova ao `settings.py`, declare-a no compose se o ambiente local precisar dela.
+
+### Local (Docker)
+
+O caminho recomendado para o dia a dia. Clonar o repositório já basta — a
+orquestração vem junto, em `infra/`:
 
 ```bash
-cd infra
+git clone <url-do-ecosol-backend>
+cd ecosol-backend/infra
 docker compose up --build
 ```
 
-- App: http://localhost:8001/health/ → `{"status": "ok"}`
-- Admin: http://localhost:8001/admin/ (ver [Área administrativa](#área-administrativa))
+- App: http://127.0.0.1:8001/health/ → `{"status": "ok"}`
+- Admin: http://127.0.0.1:8001/admin/ (ver [Área administrativa](#área-administrativa))
 
-## Rodar sem Docker (opcional)
+### Supabase (sem Docker)
+
+Da raiz do repositório:
 
 ```powershell
-cd apps\ecosol-backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
@@ -35,6 +83,9 @@ copy .env.example .env   # e preencha os valores
 python manage.py migrate
 python manage.py runserver
 ```
+
+Nunca coloque `DJANGO_IGNORE_DOTENV` no seu `.env`: é o compose que a define,
+e no `.env` ela se anularia.
 
 ## Conexão com o Supabase (duas conexões)
 
