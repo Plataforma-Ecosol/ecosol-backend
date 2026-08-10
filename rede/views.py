@@ -9,9 +9,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.reverse import reverse
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from rede.filters import ColetivoFilter
-from rede.models import Coletivo, ColetivoSlugAnterior
-from rede.serializers import ColetivoSerializer
+from rede.filters import ColetivoFilter, EventoFilter
+from rede.models import Coletivo, ColetivoSlugAnterior, Evento
+from rede.serializers import ColetivoSerializer, EventoSerializer
 
 
 class ColetivoViewSet(ReadOnlyModelViewSet):
@@ -73,3 +73,33 @@ class ColetivoViewSet(ReadOnlyModelViewSet):
             request=request,
         )
         return HttpResponsePermanentRedirect(url_canonica)
+
+
+class EventoViewSet(ReadOnlyModelViewSet):
+    """Lista e detalhe de eventos ativos — a agenda pública da rede.
+
+    Segue o padrão do `ColetivoViewSet`, com uma diferença deliberada: não há
+    `retrieve()` sobrescrito. Trocar o slug de um evento quebra o link antigo,
+    e isso é aceito — o histórico de slugs do Coletivo existe porque o perfil
+    dele é ativo permanente de visibilidade (vai no cartaz, no WhatsApp, no
+    buscador), enquanto o link de um evento tem a vida útil do evento.
+    """
+
+    permission_classes = [AllowAny]
+
+    lookup_field = "slug"
+
+    # `ativo=True` fixo (emenda 10.3) — o inativo não existe para o público.
+    # `prefetch_related` evita o N+1 da galeria: sem ele, seria uma query por
+    # evento listado.
+    queryset = Evento.objects.filter(ativo=True).prefetch_related("imagens")
+    serializer_class = EventoSerializer
+
+    filterset_class = EventoFilter
+    search_fields = ["titulo", "descricao", "local"]
+    ordering_fields = ["data_inicio", "titulo"]
+    # Cronológica CRESCENTE, e não o `-data_inicio` do `Meta` do model: são
+    # públicos diferentes. O Admin quer ver o que foi cadastrado por último; a
+    # agenda pública lê o tempo para frente, o próximo evento primeiro. Para o
+    # histórico, o cliente pede `?periodo=passados&ordering=-data_inicio`.
+    ordering = ["data_inicio"]
