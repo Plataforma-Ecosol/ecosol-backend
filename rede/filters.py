@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django_filters import rest_framework as filters
 
-from rede.models import Coletivo, Evento
+from rede.models import Coletivo, Evento, PontoDeInteresse
 
 #: Único formato de data aceito nos parâmetros do contrato público.
 FORMATO_ISO = ["%Y-%m-%d"]
@@ -116,3 +116,29 @@ class EventoFilter(filters.FilterSet):
             # nasceria o evento que não aparece em nenhum dos dois.
             return queryset.exclude(em_aberto)
         return queryset  # "todos"
+
+
+# --- Ponto de Interesse -----------------------------------------------------
+
+
+class PontoDeInteresseFilter(filters.FilterSet):
+    """Filtros de listagem de pontos de interesse (Seção 3.5 do PRD).
+
+    Como nos demais, `ativo` NÃO é declarado (emenda 10.3).
+
+    Também não há filtro por coletivo (`?coletivo=<slug>`) nesta fatia: seria
+    útil na página de perfil do coletivo, mas essa página é da fatia seguinte,
+    e o filtro interage com a guarda do coletivo inativo de um jeito que
+    merece ser decidido com o caso de uso na mão.
+    """
+
+    # `ChoiceFilter` amarrado às choices do model é o que produz o 400 quando
+    # chega `tipo=padaria` — e é o que mantém filtro e cadastro em sincronia
+    # no dia em que a equipe criar um tipo novo.
+    tipo = filters.ChoiceFilter(
+        choices=PontoDeInteresse.TipoPonto.choices, label="Tipo",
+    )
+
+    class Meta:
+        model = PontoDeInteresse
+        fields = ["tipo"]

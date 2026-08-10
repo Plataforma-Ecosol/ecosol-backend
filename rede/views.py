@@ -9,9 +9,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.reverse import reverse
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from rede.filters import ColetivoFilter, EventoFilter
-from rede.models import Coletivo, ColetivoSlugAnterior, Evento
-from rede.serializers import ColetivoSerializer, EventoSerializer
+from rede.filters import ColetivoFilter, EventoFilter, PontoDeInteresseFilter
+from rede.models import Coletivo, ColetivoSlugAnterior, Evento, PontoDeInteresse
+from rede.serializers import (
+    ColetivoSerializer,
+    EventoSerializer,
+    PontoDeInteresseSerializer,
+)
 
 
 class ColetivoViewSet(ReadOnlyModelViewSet):
@@ -103,3 +107,29 @@ class EventoViewSet(ReadOnlyModelViewSet):
     # agenda pública lê o tempo para frente, o próximo evento primeiro. Para o
     # histórico, o cliente pede `?periodo=passados&ordering=-data_inicio`.
     ordering = ["data_inicio"]
+
+
+class PontoDeInteresseViewSet(ReadOnlyModelViewSet):
+    """Lista e detalhe de pontos de interesse ativos — o mapa público.
+
+    Detalhe por `id`, e não por slug (emenda 10.2): o ponto não é página
+    indexável, é marcador de mapa. O cliente carrega a listagem inteira
+    (`?page_size=100`) e abre o detalhe a partir do objeto que já tem em mãos.
+    Acrescentar um slug ao model só por simetria custaria campo, migration,
+    backfill e — para ser coerente com o Coletivo — todo o mecanismo de
+    histórico e 301, a serviço de uma URL que ninguém publica.
+    """
+
+    permission_classes = [AllowAny]
+
+    # `ativo=True` fixo (emenda 10.3). O `select_related` é obrigatório aqui,
+    # e não otimização opcional: o serializer atravessa a FK e ainda lê
+    # `coletivo.ativo` na guarda de visibilidade — sem ele, essa guarda por si
+    # só criaria o N+1 que ela deveria custar zero.
+    queryset = PontoDeInteresse.objects.filter(ativo=True).select_related("coletivo")
+    serializer_class = PontoDeInteresseSerializer
+
+    filterset_class = PontoDeInteresseFilter
+    search_fields = ["nome", "descricao", "endereco"]
+    ordering_fields = ["nome"]
+    ordering = ["nome"]

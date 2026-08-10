@@ -115,6 +115,8 @@ envelope do DRF (`count`, `next`, `previous`, `results`).
 | `GET /api/coletivos/{slug}/` | Detalhe de um coletivo, buscado pelo slug |
 | `GET /api/eventos/` | Lista paginada dos eventos **ativos** |
 | `GET /api/eventos/{slug}/` | Detalhe de um evento, buscado pelo slug |
+| `GET /api/pontos-de-interesse/` | Lista paginada dos pontos **ativos** |
+| `GET /api/pontos-de-interesse/{id}/` | Detalhe de um ponto, buscado pelo id |
 
 `ativo` **não** é parâmetro em nenhuma rota: é a chave de visibilidade
 pública, com que a equipe do Centro Público tira um registro do ar. Aceitá-lo
@@ -194,6 +196,41 @@ contrário do Admin, que mostra o último cadastro no topo.
 Trocar o slug de um evento **quebra** o link antigo: o `301` de slug é
 mecanismo do Coletivo, cujo endereço é ativo permanente de visibilidade,
 enquanto o link de um evento tem a vida útil do evento.
+
+### Pontos de interesse
+
+**Parâmetros da listagem**
+
+| Parâmetro | Tipo | Comportamento |
+|---|---|---|
+| `q` | string | Busca textual, ignorando maiúsculas, em `nome`, `descricao` e `endereco` |
+| `tipo` | string | `orgao_es`, `loja_fisica` ou `feira_arariboia`. Valor fora dessas opções → `400` |
+| `ordering` | string | `nome`, `-nome`. Padrão: `nome` |
+
+**Campos da resposta:** `id`, `nome`, `tipo`, `tipo_display`, `descricao`,
+`latitude`, `longitude`, `endereco`, `imagem_capa` (URL absoluta ou `null`),
+`coletivo` (`{id, nome, slug}` ou `null`), `criado_em`, `atualizado_em`.
+
+**Três regras do mapa**
+
+1. **Coordenadas são número, não string.** `latitude` e `longitude` saem como
+   `-22.883712`, com as seis casas do cadastro (~0,1 m), prontas para o
+   Leaflet. Sem isso, cada cliente teria de converter — e a primeira conversão
+   esquecida vira um marcador que não aparece, sem erro no console.
+2. **O vínculo respeita a visibilidade do coletivo.** `coletivo` só é exposto
+   quando o coletivo está **ativo**. Caso contrário vem `null`, exatamente o
+   mesmo valor de "este ponto não tem coletivo vinculado" — um vínculo oculto
+   fica indistinguível da ausência de vínculo, e a chave de visibilidade do
+   Coletivo não tem porta lateral. No cliente, o tipo é
+   `coletivo: {…} | null`.
+3. **O detalhe é por `id`, não por slug.** O ponto não é página indexável, é
+   marcador de mapa: o cliente carrega a listagem e abre o detalhe a partir do
+   objeto que já tem em mãos.
+
+> **Dica para o frontend do mapa:** peça `?page_size=100` e desenhe todos os
+> marcadores de uma vez. O teto de 100 continua valendo — não há exceção de
+> "listagem sem paginação". No dia em que a rede passar de 100 pontos de
+> referência, o mapa pagina como qualquer outro cliente.
 
 ## Área administrativa
 
