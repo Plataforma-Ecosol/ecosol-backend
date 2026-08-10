@@ -104,16 +104,31 @@ $env:DJANGO_DB_DIRECT="True"; python manage.py migrate
 
 ## API pública
 
-Somente leitura (`GET`) e sem autenticação. Chaves em `snake_case`, datas em
-ISO 8601, listas com o envelope do DRF (`count`, `next`, `previous`,
-`results`).
+Somente leitura (`GET`) e sem autenticação — qualquer método de escrita
+responde `405`. Chaves em `snake_case`, datas em ISO 8601 (`AAAA-MM-DD`) e
+data-hora em ISO 8601 com fuso (`2026-08-15T18:00:00-03:00`), listas com o
+envelope do DRF (`count`, `next`, `previous`, `results`).
 
 | Rota | Descrição |
 |---|---|
 | `GET /api/coletivos/` | Lista paginada dos coletivos **ativos** |
 | `GET /api/coletivos/{slug}/` | Detalhe de um coletivo, buscado pelo slug |
+| `GET /api/eventos/` | Lista paginada dos eventos **ativos** |
+| `GET /api/eventos/{slug}/` | Detalhe de um evento, buscado pelo slug |
+| `GET /api/pontos-de-interesse/` | Lista paginada dos pontos **ativos** |
+| `GET /api/pontos-de-interesse/{id}/` | Detalhe de um ponto, buscado pelo id |
 
-### Parâmetros da listagem
+`ativo` **não** é parâmetro em nenhuma rota: é a chave de visibilidade
+pública, com que a equipe do Centro Público tira um registro do ar. Aceitá-lo
+permitiria listar justamente o que se decidiu não exibir. Desligar `ativo`
+some da listagem e faz o detalhe responder `404`.
+
+Parâmetros comuns a todas as listagens: `page` (padrão 1; página fora da
+faixa → `404`) e `page_size` (padrão 20, **máximo 100**).
+
+### Coletivos
+
+**Parâmetros da listagem**
 
 | Parâmetro | Tipo | Comportamento |
 |---|---|---|
@@ -121,20 +136,12 @@ ISO 8601, listas com o envelope do DRF (`count`, `next`, `previous`,
 | `categoria` | int | Filtra pelo id de uma categoria. Valor não numérico → `400` |
 | `bairro` | string | Filtra por bairro, ignorando maiúsculas |
 | `ordering` | string | `nome`, `-nome`, `criado_em`, `-criado_em`. Padrão: `nome` |
-| `page` | int | Número da página (padrão 1). Página fora da faixa → `404` |
-| `page_size` | int | Itens por página (padrão 20, **máximo 100**) |
 
-`ativo` **não** é parâmetro: é a chave de visibilidade pública, com que a
-equipe do Centro Público tira um coletivo do ar. Aceitá-lo permitiria listar
-justamente o que se decidiu não exibir.
+**Campos da resposta:** `id`, `nome`, `slug`, `descricao`, `bairro`, `site`,
+`categorias` (lista de `{id, nome, slug}`), `criado_em`, `atualizado_em` — e,
+quando houver consentimento, `telefone`, `email` e `instagram`.
 
-### Campos da resposta
-
-`id`, `nome`, `slug`, `descricao`, `bairro`, `site`, `categorias`
-(lista de `{id, nome, slug}`), `criado_em`, `atualizado_em` — e, quando houver
-consentimento, `telefone`, `email` e `instagram`.
-
-### Duas regras de exposição
+**Duas regras de exposição**
 
 1. **Omissão por consentimento.** `telefone`, `email` e `instagram` só entram
    na resposta se a flag correspondente estiver ligada. Sem consentimento a
@@ -148,6 +155,82 @@ consentimento, `telefone`, `email` e `instagram`.
 Nenhum dado de Pessoa, endereço, dado cadastral ou flag de consentimento é
 exposto por qualquer caminho. `bairro` é o único dado geográfico público.
 Isso é garantido por uma suíte de regressão de LGPD, bloqueante no CI.
+
+### Eventos
+
+**Parâmetros da listagem**
+
+| Parâmetro | Tipo | Comportamento |
+|---|---|---|
+| `q` | string | Busca textual, ignorando maiúsculas, em `titulo`, `descricao` e `local` |
+| `periodo` | string | `proximos`, `passados` ou `todos`. Padrão: `todos`. Valor fora da lista → `400` |
+| `de` | data | Eventos cuja **data de início** é a partir deste dia, inclusive |
+| `ate` | data | Eventos cuja **data de início** é até este dia, inclusive |
+| `bairro` | string | Filtra por bairro, ignorando maiúsculas |
+| `ordering` | string | `data_inicio`, `-data_inicio`, `titulo`, `-titulo`. Padrão: `data_inicio` |
+
+`de` e `ate` aceitam **só** `AAAA-MM-DD` — `15/08/2026` responde `400`. Os
+dois comparam a **data**, não o instante: `ate=2026-08-15` inclui o evento das
+19h do dia 15. Podem ser combinados com `periodo`.
+
+**Campos da resposta:** `id`, `titulo`, `slug`, `descricao`, `data_inicio`,
+`data_fim` (`null` quando não houver), `local`, `bairro`, `link`, `imagens`
+(lista de `{id, imagem, legenda, ordem}`, ordenada por `ordem`, com URL
+absoluta), `criado_em`, `atualizado_em`.
+
+**Duas regras da agenda**
+
+1. **O evento em andamento continua em `proximos`.** O recorte é "ainda não
+   terminou": uma feira de três dias não some da agenda no segundo dia.
+   `passados` é o complemento exato — todo evento ativo cai em um dos dois,
+   nunca em nenhum e nunca nos dois.
+2. **A rota nua não recorta o tempo.** Sem `periodo`, vêm todos os eventos
+   ativos. A agenda pública pede `?periodo=proximos`; quem monta um histórico
+   da rede pede `?periodo=passados&ordering=-data_inicio`. Um recorte
+   implícito, que o cliente não pediu e não consegue desligar, faria a rota
+   mentir sobre o tamanho da base.
+
+A ordenação padrão é cronológica **crescente** (o próximo evento primeiro), ao
+contrário do Admin, que mostra o último cadastro no topo.
+
+Trocar o slug de um evento **quebra** o link antigo: o `301` de slug é
+mecanismo do Coletivo, cujo endereço é ativo permanente de visibilidade,
+enquanto o link de um evento tem a vida útil do evento.
+
+### Pontos de interesse
+
+**Parâmetros da listagem**
+
+| Parâmetro | Tipo | Comportamento |
+|---|---|---|
+| `q` | string | Busca textual, ignorando maiúsculas, em `nome`, `descricao` e `endereco` |
+| `tipo` | string | `orgao_es`, `loja_fisica` ou `feira_arariboia`. Valor fora dessas opções → `400` |
+| `ordering` | string | `nome`, `-nome`. Padrão: `nome` |
+
+**Campos da resposta:** `id`, `nome`, `tipo`, `tipo_display`, `descricao`,
+`latitude`, `longitude`, `endereco`, `imagem_capa` (URL absoluta ou `null`),
+`coletivo` (`{id, nome, slug}` ou `null`), `criado_em`, `atualizado_em`.
+
+**Três regras do mapa**
+
+1. **Coordenadas são número, não string.** `latitude` e `longitude` saem como
+   `-22.883712`, com as seis casas do cadastro (~0,1 m), prontas para o
+   Leaflet. Sem isso, cada cliente teria de converter — e a primeira conversão
+   esquecida vira um marcador que não aparece, sem erro no console.
+2. **O vínculo respeita a visibilidade do coletivo.** `coletivo` só é exposto
+   quando o coletivo está **ativo**. Caso contrário vem `null`, exatamente o
+   mesmo valor de "este ponto não tem coletivo vinculado" — um vínculo oculto
+   fica indistinguível da ausência de vínculo, e a chave de visibilidade do
+   Coletivo não tem porta lateral. No cliente, o tipo é
+   `coletivo: {…} | null`.
+3. **O detalhe é por `id`, não por slug.** O ponto não é página indexável, é
+   marcador de mapa: o cliente carrega a listagem e abre o detalhe a partir do
+   objeto que já tem em mãos.
+
+> **Dica para o frontend do mapa:** peça `?page_size=100` e desenhe todos os
+> marcadores de uma vez. O teto de 100 continua valendo — não há exceção de
+> "listagem sem paginação". No dia em que a rede passar de 100 pontos de
+> referência, o mapa pagina como qualquer outro cliente.
 
 ## Área administrativa
 

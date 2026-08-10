@@ -5,16 +5,10 @@ NÃO vira. A segunda cobre o que o usuário final sente — o link publicado num
 cartaz continua abrindo o perfil certo, com 301 para a URL canônica.
 """
 import pytest
-from rest_framework.test import APIClient
 
 from rede.models import Coletivo, ColetivoSlugAnterior
 
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture
-def api():
-    return APIClient()
 
 
 def test_trocar_o_slug_registra_o_slug_antigo():

@@ -9,9 +9,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.reverse import reverse
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
-from rede.filters import ColetivoFilter
-from rede.models import Coletivo, ColetivoSlugAnterior
-from rede.serializers import ColetivoSerializer
+from rede.filters import ColetivoFilter, EventoFilter, PontoDeInteresseFilter
+from rede.models import Coletivo, ColetivoSlugAnterior, Evento, PontoDeInteresse
+from rede.serializers import (
+    ColetivoSerializer,
+    EventoSerializer,
+    PontoDeInteresseSerializer,
+)
 
 
 class ColetivoViewSet(ReadOnlyModelViewSet):
@@ -73,3 +77,59 @@ class ColetivoViewSet(ReadOnlyModelViewSet):
             request=request,
         )
         return HttpResponsePermanentRedirect(url_canonica)
+
+
+class EventoViewSet(ReadOnlyModelViewSet):
+    """Lista e detalhe de eventos ativos — a agenda pública da rede.
+
+    Segue o padrão do `ColetivoViewSet`, com uma diferença deliberada: não há
+    `retrieve()` sobrescrito. Trocar o slug de um evento quebra o link antigo,
+    e isso é aceito — o histórico de slugs do Coletivo existe porque o perfil
+    dele é ativo permanente de visibilidade (vai no cartaz, no WhatsApp, no
+    buscador), enquanto o link de um evento tem a vida útil do evento.
+    """
+
+    permission_classes = [AllowAny]
+
+    lookup_field = "slug"
+
+    # `ativo=True` fixo (emenda 10.3) — o inativo não existe para o público.
+    # `prefetch_related` evita o N+1 da galeria: sem ele, seria uma query por
+    # evento listado.
+    queryset = Evento.objects.filter(ativo=True).prefetch_related("imagens")
+    serializer_class = EventoSerializer
+
+    filterset_class = EventoFilter
+    search_fields = ["titulo", "descricao", "local"]
+    ordering_fields = ["data_inicio", "titulo"]
+    # Cronológica CRESCENTE, e não o `-data_inicio` do `Meta` do model: são
+    # públicos diferentes. O Admin quer ver o que foi cadastrado por último; a
+    # agenda pública lê o tempo para frente, o próximo evento primeiro. Para o
+    # histórico, o cliente pede `?periodo=passados&ordering=-data_inicio`.
+    ordering = ["data_inicio"]
+
+
+class PontoDeInteresseViewSet(ReadOnlyModelViewSet):
+    """Lista e detalhe de pontos de interesse ativos — o mapa público.
+
+    Detalhe por `id`, e não por slug (emenda 10.2): o ponto não é página
+    indexável, é marcador de mapa. O cliente carrega a listagem inteira
+    (`?page_size=100`) e abre o detalhe a partir do objeto que já tem em mãos.
+    Acrescentar um slug ao model só por simetria custaria campo, migration,
+    backfill e — para ser coerente com o Coletivo — todo o mecanismo de
+    histórico e 301, a serviço de uma URL que ninguém publica.
+    """
+
+    permission_classes = [AllowAny]
+
+    # `ativo=True` fixo (emenda 10.3). O `select_related` é obrigatório aqui,
+    # e não otimização opcional: o serializer atravessa a FK e ainda lê
+    # `coletivo.ativo` na guarda de visibilidade — sem ele, essa guarda por si
+    # só criaria o N+1 que ela deveria custar zero.
+    queryset = PontoDeInteresse.objects.filter(ativo=True).select_related("coletivo")
+    serializer_class = PontoDeInteresseSerializer
+
+    filterset_class = PontoDeInteresseFilter
+    search_fields = ["nome", "descricao", "endereco"]
+    ordering_fields = ["nome"]
+    ordering = ["nome"]
