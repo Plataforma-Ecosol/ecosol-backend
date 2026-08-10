@@ -9,14 +9,13 @@ Duas coisas se provam aqui, e as duas são bloqueantes no CI:
    coletivo inativo, e a chave de visibilidade do Coletivo tem de valer também
    por essa porta lateral.
 """
-import base64
 from decimal import Decimal
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
-from rest_framework.test import APIClient
 
 from rede.models import Coletivo, PontoDeInteresse
+from tests.helpers import PNG_MINIMO
 
 pytestmark = pytest.mark.django_db
 
@@ -38,23 +37,6 @@ CHAVES_DO_PONTO = {
 
 #: Conjunto exato de chaves do coletivo aninhado — o cartão de visita.
 CHAVES_DO_COLETIVO_RESUMIDO = {"id", "nome", "slug"}
-
-PNG_MINIMO = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGA"
-    "hKmMIQAAAABJRU5ErkJggg=="
-)
-
-
-@pytest.fixture
-def api():
-    return APIClient()
-
-
-@pytest.fixture
-def media_temporaria(settings, tmp_path):
-    """Manda os uploads do teste para uma pasta descartável."""
-    settings.MEDIA_ROOT = tmp_path
-    return tmp_path
 
 
 @pytest.fixture
@@ -305,7 +287,7 @@ def test_busca_q_encontra_por_nome_descricao_e_endereco(api, ponto_completo):
     )
 
     base = "/api/pontos-de-interesse/?q="
-    assert api.get(f"{base}ARARIBOIA").json()["count"] == 1  # nome
+    assert api.get(f"{base}singer").json()["count"] == 1  # nome
     assert api.get(f"{base}referência").json()["count"] == 1  # descrição
     assert api.get(f"{base}sepetiba").json()["count"] == 1  # endereço
     assert api.get(f"{base}inexistente").json()["count"] == 0
@@ -366,7 +348,7 @@ def test_detalhe_por_id(api, ponto_completo):
     assert api.get("/api/pontos-de-interesse/999999/").status_code == 404
 
 
-def test_imagem_capa_ausente_vem_null_e_presente_vem_url(api, media_temporaria):
+def test_imagem_capa_ausente_vem_null_e_presente_vem_url(api):
     """(17) A capa é ausência legítima, não segredo: sai `null`, com a chave presente."""
     sem_capa = ponto("Sem capa")
     com_capa = ponto(
@@ -379,7 +361,10 @@ def test_imagem_capa_ausente_vem_null_e_presente_vem_url(api, media_temporaria):
 
     assert resposta_sem["imagem_capa"] is None
     assert resposta_com["imagem_capa"].endswith(".png")
-    assert "/media/pontos-de-interesse/" in resposta_com["imagem_capa"]
+    # Absoluta, não relativa: é o valor que o mapa usa no popup do marcador.
+    assert resposta_com["imagem_capa"].startswith(
+        "http://testserver/media/pontos-de-interesse/"
+    )
 
 
 def test_listagem_nao_tem_n_mais_1(api, django_assert_num_queries, coletivo_ativo):

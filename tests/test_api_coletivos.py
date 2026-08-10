@@ -10,7 +10,6 @@ A segunda metade cobre o contrato da API (Seção 3) e o desempenho (anti-N+1).
 from decimal import Decimal
 
 import pytest
-from rest_framework.test import APIClient
 
 from rede.models import Categoria, Coletivo, Pessoa
 
@@ -30,11 +29,6 @@ CHAVES_SEM_CONTATOS = {
     "atualizado_em",
 }
 CHAVES_DE_CONTATO = {"telefone", "email", "instagram"}
-
-
-@pytest.fixture
-def api():
-    return APIClient()
 
 
 @pytest.fixture

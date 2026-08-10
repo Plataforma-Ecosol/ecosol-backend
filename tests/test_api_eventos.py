@@ -8,15 +8,14 @@ Duas coisas se provam aqui, e as duas são bloqueantes no CI:
    `periodo=passados` particionam os eventos ativos sem sobra nem
    sobreposição, e uma feira de três dias continua na agenda no segundo dia.
 """
-import base64
 from datetime import datetime, timedelta
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
-from rest_framework.test import APIClient
 
 from rede.models import Evento, ImagemEvento
+from tests.helpers import PNG_MINIMO
 
 pytestmark = pytest.mark.django_db
 
@@ -39,29 +38,6 @@ CHAVES_DO_EVENTO = {
 #: Conjunto exato de chaves de cada imagem aninhada (Seção 4.4).
 CHAVES_DA_IMAGEM = {"id", "imagem", "legenda", "ordem"}
 
-#: PNG 1×1 em memória — o menor arquivo que o `ImageField` aceita. Evita
-#: depender de um binário versionado no repositório só para testar upload.
-PNG_MINIMO = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGA"
-    "hKmMIQAAAABJRU5ErkJggg=="
-)
-
-
-@pytest.fixture
-def api():
-    return APIClient()
-
-
-@pytest.fixture
-def media_temporaria(settings, tmp_path):
-    """Manda os uploads do teste para uma pasta descartável.
-
-    Sem isto, cada rodada de teste sujaria a `media/` da árvore do repositório
-    com PNGs de um pixel.
-    """
-    settings.MEDIA_ROOT = tmp_path
-    return tmp_path
-
 
 @pytest.fixture
 def evento_completo():
@@ -82,9 +58,9 @@ def evento_completo():
     )
 
 
-def em(dias, horas=0):
+def em(dias):
     """Instante relativo a agora, consciente de fuso (`USE_TZ=True`)."""
-    return timezone.now() + timedelta(days=dias, hours=horas)
+    return timezone.now() + timedelta(days=dias)
 
 
 def slugs(resposta):
@@ -121,6 +97,35 @@ def test_resposta_tem_exatamente_as_chaves_do_contrato(api, evento_completo):
     # Mesma exigência na listagem, que é a porta mais visitada.
     item_da_lista = api.get("/api/eventos/").json()["results"][0]
     assert set(item_da_lista.keys()) == CHAVES_DO_EVENTO
+
+
+def test_data_inicio_sai_em_iso_8601_com_fuso(api, evento_completo):
+    """(2b) `data_inicio` é data-HORA ISO 8601 com offset (emenda 10.5).
+
+    É a única mudança que esta fatia faz na convenção de datas do projeto — o
+    resto da API devolve `AAAA-MM-DD` — e sem esta asserção ela entra sem rede:
+    bastaria alguém acrescentar `DATETIME_FORMAT` ao `REST_FRAMEWORK` para
+    acertar o Admin, a suíte inteira continuaria verde e o `new Date(...)` da
+    agenda passaria a receber `Invalid Date` em produção.
+
+    Comparar com `evento.data_inicio.isoformat()` NÃO funciona: o DRF converte
+    para `TIME_ZONE` antes de serializar, e a fixture guarda UTC — daí o
+    `localtime()`.
+    """
+    dados = api.get(f"/api/eventos/{evento_completo.slug}/").json()
+
+    assert dados["data_inicio"] == timezone.localtime(evento_completo.data_inicio).isoformat()
+    assert dados["data_inicio"].endswith("-03:00")  # a emenda 10.5 é sobre o offset
+
+
+def test_data_fim_ausente_sai_null_com_a_chave_presente(api):
+    """(2c) Sem `data_fim`, a chave vem no corpo valendo `null`, e não sumida."""
+    Evento.objects.create(titulo="Sem fim", slug="sem-fim", data_inicio=em(3))
+
+    dados = api.get("/api/eventos/sem-fim/").json()
+
+    assert "data_fim" in dados
+    assert dados["data_fim"] is None
 
 
 def test_campo_ativo_nunca_aparece(api, evento_completo):
@@ -250,7 +255,7 @@ def test_busca_q_encontra_por_titulo_descricao_e_local(api, evento_completo):
         descricao="Formação em cooperativismo.", local="ITES/UFF",
     )
 
-    assert api.get("/api/eventos/?q=ARARIBOIA").json()["count"] == 1  # título
+    assert api.get("/api/eventos/?q=circuito").json()["count"] == 1  # título
     assert api.get("/api/eventos/?q=cooperativismo").json()["count"] == 1  # descrição
     assert api.get("/api/eventos/?q=praça").json()["count"] == 1  # local
     assert api.get("/api/eventos/?q=inexistente").json()["count"] == 0
@@ -333,7 +338,7 @@ def test_detalhe_por_slug(api, evento_completo):
 # --- Galeria e desempenho ---------------------------------------------------
 
 
-def test_imagens_vem_aninhadas_na_ordem_definida(api, evento_completo, media_temporaria):
+def test_imagens_vem_aninhadas_na_ordem_definida(api, evento_completo):
     """(17) A galeria sai ordenada por `ordem`, com o contrato mínimo de imagem.
 
     As imagens são criadas fora de ordem justamente para que a asserção prove
@@ -353,10 +358,12 @@ def test_imagens_vem_aninhadas_na_ordem_definida(api, evento_completo, media_tem
     for imagem in imagens:
         assert set(imagem.keys()) == CHAVES_DA_IMAGEM
         assert imagem["imagem"].endswith(".png")
-        assert "/media/eventos/" in imagem["imagem"]
+        # Absoluta, não relativa: é o valor que o Next.js joga direto no
+        # `<img src>`, e o domínio da API não é o domínio do site.
+        assert imagem["imagem"].startswith("http://testserver/media/eventos/")
 
 
-def test_listagem_nao_tem_n_mais_1(api, django_assert_num_queries, media_temporaria):
+def test_listagem_nao_tem_n_mais_1(api, django_assert_num_queries):
     """(18) A listagem faz um número CONSTANTE de queries, não uma por evento.
 
     É este teste que transforma "sem N+1" de promessa em garantia: sem ele, o
