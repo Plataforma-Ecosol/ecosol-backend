@@ -171,7 +171,10 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.SearchFilter",
-        "rest_framework.filters.OrderingFilter",
+        # `OrdenacaoEstavel`, e não o `OrderingFilter` do DRF: nenhum campo de
+        # ordenação do contrato é único, e `LIMIT`/`OFFSET` sobre ordem parcial
+        # faz registro repetir de página ou sumir da listagem (ver rede/ordering.py).
+        "rede.ordering.OrdenacaoEstavel",
     ],
     # Paginação global (PRD 9.1): `page_size` 20, teto de 100 — o `PAGE_SIZE`
     # do DRF fica na própria classe, e não aqui.
