@@ -126,6 +126,14 @@ some da listagem e faz o detalhe responder `404`.
 Parâmetros comuns a todas as listagens: `page` (padrão 1; página fora da
 faixa → `404`) e `page_size` (padrão 20, **máximo 100**).
 
+**A paginação é estável.** Nenhum campo de `ordering` é único — dois eventos
+podem começar no mesmo instante, dois pontos podem ter o mesmo nome —, então
+toda listagem desempata pela chave primária por baixo dos panos. Sem isso, os
+registros empatados viriam em ordem arbitrária a cada consulta e um deles
+poderia repetir na página seguinte, ou não aparecer em nenhuma. O desempate não
+é parâmetro e não muda o contrato: só garante que percorrer as páginas devolva
+cada registro exatamente uma vez.
+
 ### Coletivos
 
 **Parâmetros da listagem**
