@@ -33,7 +33,17 @@ services:
       DJANGO_IGNORE_DOTENV: "True"
       DJANGO_DEBUG: "True"
       DJANGO_SECRET_KEY: "dev-secret-nao-use-em-producao"
-      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      # `backend` está na lista porque é o NOME DESTE SERVIÇO: qualquer outro
+      # container que fale com o Django o alcança por `http://backend:8001`, e
+      # o Django valida o cabeçalho Host contra esta lista. Sem isso, toda
+      # requisição vinda de outro container morre em 400 — num erro que não
+      # menciona ALLOWED_HOSTS em lugar nenhum.
+      #
+      # Fica aqui, e não no compose que orquestra os três serviços, porque o
+      # nome do serviço é declarado NESTE arquivo. E porque sobrescrever um
+      # serviço vindo de `include` não funciona em todas as versões do Compose:
+      # a do runner do CI recusa com "conflicts with imported resource".
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0,backend"
       # Aponta para o Postgres local do compose (não o Supabase).
       DATABASE_URL: "postgres://ecosol:ecosol@db:5432/ecosol"
       DJANGO_DB_POOLER: "False"
