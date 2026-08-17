@@ -78,7 +78,7 @@ enxerga por você.
 git fetch origin
 git checkout <branch-do-pr>
 
-cd C:\ecosol-fullstack\infra
+cd C:\ecosol-fullstack\apps\ecosol-backend\infra
 docker compose run --rm backend python manage.py migrate
 docker compose run --rm backend python manage.py makemigrations --check --dry-run  # "No changes detected"
 docker compose run --rm --no-deps backend ruff check .                             # "All checks passed!"

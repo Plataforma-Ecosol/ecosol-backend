@@ -4,7 +4,7 @@ cd C:\ecosol-fullstack\apps\ecosol-backend
 Confira que o nome sai como 000numero_... e as operações são de acordo com o alterado anteriormente.
 
 2. Validar o esquema localmente (container isolado, não toca o Supabase):
-cd C:/ecosol-fullstack/infra
+cd C:/ecosol-fullstack/apps/ecosol-backend/infra
 docker compose run --rm backend python manage.py migrate
 docker compose run --rm backend python manage.py makemigrations --check --dry-run   # "No changes detected"
 docker compose run --rm --no-deps backend ruff check .                              # "All checks passed!"
