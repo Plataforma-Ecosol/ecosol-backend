@@ -303,10 +303,33 @@ Storage, ligado por `DJANGO_USE_S3=True` — sem alteração de código.
 
 ## Testes e lint
 
+Rode dentro do container. É o caminho recomendado, e é o único em que o
+ambiente da suíte é o mesmo do CI:
+
 ```bash
-ruff check .
+cd infra
+docker compose run --rm backend pytest
+docker compose run --rm --no-deps backend ruff check .
+```
+
+**A suíte se recusa a rodar contra banco remoto**, e isso não é preciosismo: o
+`.env` da máquina aponta para o Supabase de produção, e o pytest-django cria e
+derruba um banco `test_<nome>` na instância que encontrar. Já sobrou um
+`test_postgres` órfão lá por causa disso. A guarda está em `conftest.py`, na
+raiz, e interrompe a sessão antes de qualquer conexão — com a mensagem dizendo
+o que fazer.
+
+Para rodar da máquina, aponte antes para o Postgres do compose:
+
+```powershell
+$env:DJANGO_IGNORE_DOTENV = "True"
+$env:DATABASE_URL = "postgres://ecosol:ecosol@localhost:5432/ecosol"
 pytest
 ```
+
+A outra metade do isolamento é o storage, em `tests/conftest.py`: uma fixture
+`autouse` troca o backend de arquivos por um temporário, para que nenhum upload
+de teste alcance o bucket `divulgacao`.
 
 ## Fluxo Git
 
