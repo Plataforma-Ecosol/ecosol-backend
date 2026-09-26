@@ -12,6 +12,8 @@ from pathlib import Path
 
 import environ
 
+from config.ambiente import hosts_permitidos
+
 # .../apps/ecosol-backend
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -34,7 +36,27 @@ if env_file.exists() and not IGNORE_DOTENV:
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-inseguro-troque-no-env")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+ALLOWED_HOSTS = hosts_permitidos(
+    env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"]),
+    env("RENDER_EXTERNAL_HOSTNAME", default=""),
+)
+
+# --- HTTPS atrás de proxy (Render) -----------------------------------------
+# O Render termina o HTTPS e repassa HTTP ao gunicorn, avisando no cabeçalho
+# X-Forwarded-Proto. Sem confiar nele, o Django acha que a requisição é HTTP.
+# Só ligar onde há proxy de verdade: confiar no cabeçalho sem proxy na frente
+# deixaria qualquer cliente se declarar HTTPS.
+if env.bool("DJANGO_ATRAS_DE_PROXY_HTTPS", default=False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Origens aceitas no POST de formulário (login do Admin). Em HTTPS o Django
+# confere o cabeçalho Origin contra esta lista; vazia, o login dá 403.
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+
+# Cookies de sessão e CSRF só por HTTPS. Desligado por padrão: o compose e o
+# CI falam HTTP, e cookie Secure em HTTP simplesmente não volta.
+SESSION_COOKIE_SECURE = env.bool("DJANGO_COOKIES_SEGUROS", default=False)
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 
 # --- Aplicações ------------------------------------------------------------
 INSTALLED_APPS = [
@@ -53,6 +75,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Logo depois do SecurityMiddleware e antes de todo o resto, como pede a
+    # documentação do WhiteNoise: fora do DEBUG, é ele quem serve o CSS do Admin.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -134,6 +159,9 @@ USE_I18N = True
 USE_TZ = True
 
 # --- Arquivos estáticos ----------------------------------------------------
+# Só o Admin tem estáticos. Com DEBUG=True o runserver os serve sozinho; fora
+# dele quem serve é o WhiteNoise, a partir do STATIC_ROOT montado pelo
+# `collectstatic` no build da imagem.
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
@@ -145,16 +173,20 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# --- Storages ---------------------------------------------------------------
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Sem "Manifest" de propósito: a variante com manifesto exige collectstatic
+    # antes de renderizar qualquer template com DEBUG=False — e a suíte roda com
+    # DEBUG=False. Ver a Seção 3.3 do PRD de homologação.
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
 # --- Storage de imagens (Supabase Storage, S3-compatível) — PRD 3.3 --------
-# Já configurado nesta fase; passa a ser usado por imagens de Evento e capa de
-# Ponto de Interesse a partir do PR 3/4. Só ativa se DJANGO_USE_S3=True.
+# Imagens de Evento e capa de Ponto de Interesse. Só ativa se DJANGO_USE_S3=True,
+# e troca apenas o `default`: os estáticos do Admin continuam no WhiteNoise.
 if env.bool("DJANGO_USE_S3", default=False):
-    STORAGES = {
-        "default": {"BACKEND": "storages.backends.s3.S3Storage"},
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
-        },
-    }
+    STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
