@@ -87,6 +87,94 @@ python manage.py runserver
 Nunca coloque `DJANGO_IGNORE_DOTENV` no seu `.env`: é o compose que a define,
 e no `.env` ela se anularia.
 
+## Deploy (homologação)
+
+A homologação roda no **Render** (plano Free), publicando a branch `staging`, com
+banco e Storage num **projeto Supabase próprio** (`ecosol-homolog`), separado do
+de produção. É lá que a Sprint Review acontece. O passo a passo completo dos
+painéis (Supabase, Render e Vercel) está na Seção 7 do PRD de implementação do
+ambiente de homologação.
+
+O Render constrói a imagem a partir do `Dockerfile`: o `collectstatic` roda no
+build, e o `gunicorn` escuta na porta que o Render injeta em `$PORT`. Os
+estáticos do Admin são servidos pelo WhiteNoise, sem serviço extra.
+
+### Variáveis do Render
+
+| Variável | Valor |
+|---|---|
+| `DJANGO_SECRET_KEY` | gerar: `python -c "import secrets; print(secrets.token_urlsafe(50))"` |
+| `DJANGO_DEBUG` | `False` |
+| `DJANGO_IGNORE_DOTENV` | `True` |
+| `DJANGO_ALLOWED_HOSTS` | `ecosol-backend-homolog.onrender.com` |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://ecosol-backend-homolog.onrender.com` (com `https://`, sem barra no fim) |
+| `DJANGO_ATRAS_DE_PROXY_HTTPS` | `True` |
+| `DJANGO_COOKIES_SEGUROS` | `True` |
+| `DATABASE_URL` | Transaction pooler (porta 6543) do projeto **ecosol-homolog** |
+| `DATABASE_DIRECT_URL` | Session pooler (porta 5432) do projeto **ecosol-homolog** |
+| `DJANGO_DB_POOLER` | `True` |
+| `DJANGO_USE_S3` | `True` |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | chave S3 do Storage do **ecosol-homolog** |
+| `AWS_STORAGE_BUCKET_NAME` | `divulgacao` |
+| `AWS_S3_ENDPOINT_URL` | `https://<ref-do-homolog>.supabase.co/storage/v1/s3` |
+| `AWS_S3_REGION_NAME` | `sa-east-1` |
+
+Os valores de verdade ficam **só no painel do Render**. Não defina `PORT`: o
+Render injeta sozinho. O host do serviço também entra em `ALLOWED_HOSTS` sem
+ninguém digitar (`RENDER_EXTERNAL_HOSTNAME`), mas o CSRF **não**: se o nome do
+serviço mudar, ajuste `DJANGO_CSRF_TRUSTED_ORIGINS`, senão o login do Admin dá
+403.
+
+As três variáveis de deploy (`DJANGO_ATRAS_DE_PROXY_HTTPS`,
+`DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_COOKIES_SEGUROS`) ficam desligadas por
+padrão, e o compose e o CI não as definem. **Não ligue nenhuma delas no local**:
+confiar no cabeçalho do proxy sem proxy na frente deixaria qualquer cliente se
+declarar HTTPS, e cookie `Secure` em HTTP simplesmente não volta.
+
+### Migrations e superusuário da homologação
+
+O Render Free não tem terminal. Migrations e superusuário rodam da máquina de
+quem desenvolve — e o seu `.env` aponta para o Supabase de **produção**. Por
+isso a sessão abaixo liga `DJANGO_IGNORE_DOTENV=True`: nada do `.env` entra, e
+só existem as variáveis de homologação definidas no próprio terminal. Fechar o
+terminal apaga tudo.
+
+Em PowerShell, na raiz do repositório, com o venv ativado:
+
+```powershell
+# 1. Isolar: nada do .env (que aponta para produção) entra nesta sessão.
+$env:DJANGO_IGNORE_DOTENV = "True"
+$env:DJANGO_SECRET_KEY    = "so-para-este-terminal"
+$env:DJANGO_DB_DIRECT     = "True"
+$env:DATABASE_DIRECT_URL  = "<Session pooler 5432 do ecosol-homolog>"
+
+# 2. Conferir o destino ANTES de escrever qualquer coisa. Tem de aparecer o
+#    host do pooler, e a URL colada tem de ter o usuário postgres.<ref DO
+#    HOMOLOG>. Se aparecer outro projeto, PARE.
+python -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings');django.setup();from django.conf import settings as s;print(s.DATABASES['default']['HOST'])"
+
+# 3. Aplicar as migrations e criar o superusuário.
+python manage.py migrate
+python manage.py createsuperuser
+
+# 4. Encerrar a sessão (apaga as variáveis).
+exit
+```
+
+Nunca rode `pytest` nessa sessão.
+
+### Limitações do Render Free
+
+- **Dorme após 15 minutos** sem requisição e leva cerca de 1 minuto para
+  acordar. A primeira página depois de um tempo parado demora, ou dá erro e
+  funciona ao recarregar. Antes de cada Sprint Review, abra o site uns minutos
+  antes.
+- **Sem terminal** (nem SSH nem shell no painel): por isso a seção acima.
+- **Portas de SMTP bloqueadas** (25, 465 e 587). O envio de e-mail vai precisar
+  de um provedor com API HTTP, não SMTP.
+- O projeto Supabase gratuito é **pausado** após 7 dias sem uso. Se o site
+  inteiro cair, confira o painel do Supabase antes de qualquer outra coisa.
+
 ## Conexão com o Supabase (duas conexões)
 
 - **App (runtime):** Transaction Pooler, porta **6543** → `DATABASE_URL`.
