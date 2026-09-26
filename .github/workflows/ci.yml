@@ -49,3 +49,8 @@ jobs:
 
       - name: Testes (pytest)
         run: pytest
+
+      # Depois do pytest: é o único jeito de pegar, no PR, um erro que só
+      # apareceria no build da imagem (o Render roda o mesmo comando).
+      - name: Estáticos (collectstatic)
+        run: python manage.py collectstatic --noinput
