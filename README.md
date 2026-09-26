@@ -32,7 +32,7 @@ fora de qualquer repositório, essa promessa não se sustentava.
 | Documento | O que traz |
 |---|---|
 | `docs/PRD/PRD_Tecnico_Ecosol_Niteroi_v4.1.md` | Arquitetura, modelo de dados, decisões e status. O documento mestre. |
-| `docs/PRD/PRD_Implementacao_*.md` | Especificação de cada fatia entregue (models, endpoint de Coletivos, Django Admin). |
+| `docs/PRD/PRD_Implementacao_*.md` | Especificação de cada fatia entregue (models, endpoint de Coletivos, Django Admin, ambiente de homologação). |
 | `docs/GUIA_REVISAO_PR.md` | Como revisar um pull request neste projeto. |
 | `docs/revisoes/` | Revisões arquivadas. |
 
@@ -92,8 +92,8 @@ e no `.env` ela se anularia.
 A homologação roda no **Render** (plano Free), publicando a branch `staging`, com
 banco e Storage num **projeto Supabase próprio** (`ecosol-homolog`), separado do
 de produção. É lá que a Sprint Review acontece. O passo a passo completo dos
-painéis (Supabase, Render e Vercel) está na Seção 7 do PRD de implementação do
-ambiente de homologação.
+painéis (Supabase, Render e Vercel) está na Seção 7 de
+`docs/PRD/PRD_Implementacao_Homologacao_v1.md`.
 
 O Render constrói a imagem a partir do `Dockerfile`: o `collectstatic` roda no
 build, e o `gunicorn` escuta na porta que o Render injeta em `$PORT`. Os
