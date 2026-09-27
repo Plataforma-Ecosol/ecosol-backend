@@ -18,7 +18,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # --- Ambiente (.env) -------------------------------------------------------
 env = environ.Env(DJANGO_DEBUG=(bool, False))
 env_file = BASE_DIR / ".env"
-if env_file.exists():
+
+# O .env é a configuração da MÁQUINA do desenvolvedor e aponta para o Supabase
+# real. No docker-compose local o ambiente já vem inteiro pelas variáveis do
+# container, e ler o .env por cima abriria um vazamento silencioso: `read_env`
+# não sobrescreve o que já existe, mas *preenche as lacunas* — então toda
+# variável que o compose não declarasse (credenciais do Storage, por exemplo)
+# passaria a vir do Supabase, e o ambiente "isolado" deixaria de ser isolado.
+#
+# Por isso o compose liga DJANGO_IGNORE_DOTENV: o isolamento vira propriedade
+# do ambiente, e não uma lista de variáveis a manter em sincronia com o .env.
+IGNORE_DOTENV = env.bool("DJANGO_IGNORE_DOTENV", default=False)
+if env_file.exists() and not IGNORE_DOTENV:
     environ.Env.read_env(env_file)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-inseguro-troque-no-env")
@@ -126,6 +137,14 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# --- Arquivos de mídia (uploads) -------------------------------------------
+# Em produção/homologação o upload vai para o Supabase Storage (bloco S3
+# abaixo, DJANGO_USE_S3=True). No ambiente local do docker-compose (sem S3) os
+# arquivos vão para o sistema de arquivos e são servidos só em DEBUG (ver
+# config/urls.py). Sem isto, salvar uma imagem no Admin quebra localmente.
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 # --- Storage de imagens (Supabase Storage, S3-compatível) — PRD 3.3 --------
 # Já configurado nesta fase; passa a ser usado por imagens de Evento e capa de
 # Ponto de Interesse a partir do PR 3/4. Só ativa se DJANGO_USE_S3=True.
@@ -152,13 +171,21 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.SearchFilter",
-        "rest_framework.filters.OrderingFilter",
+        # `OrdenacaoEstavel`, e não o `OrderingFilter` do DRF: nenhum campo de
+        # ordenação do contrato é único, e `LIMIT`/`OFFSET` sobre ordem parcial
+        # faz registro repetir de página ou sumir da listagem (ver rede/ordering.py).
+        "rede.ordering.OrdenacaoEstavel",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 20,
+    # Paginação global (PRD 9.1): `page_size` 20, teto de 100 — o `PAGE_SIZE`
+    # do DRF fica na própria classe, e não aqui.
+    "DEFAULT_PAGINATION_CLASS": "rede.pagination.PaginacaoPadrao",
+    # O contrato público chama a busca textual de `q` (o padrão do DRF é
+    # `search`).
+    "SEARCH_PARAM": "q",
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# AUTH_USER_MODEL (usuário customizado) entra no PR 2, antes de qualquer outro
-# model, para não travar o esquema depois.
+# AUTH_USER_MODEL (usuário customizado): primeira migration do app `rede`,
+# antes de qualquer outro model, para não travar o esquema depois (PRD 5).
+AUTH_USER_MODEL = "rede.Usuario"
