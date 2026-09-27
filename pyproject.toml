@@ -14,3 +14,7 @@ select = ["E", "F", "I", "UP", "B", "DJ"]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "*_test.py", "tests.py"]
 addopts = "-q"
+# O WhiteNoise avisa quando o STATIC_ROOT ainda não existe, e a suíte roda
+# antes do `collectstatic` (no CI e no container). O aviso sairia uma vez por
+# cliente de teste e enterraria os avisos que importam.
+filterwarnings = ["ignore:No directory at:UserWarning"]

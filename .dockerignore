@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 .venv/
+venv/
 staticfiles/
 .pytest_cache/
 .ruff_cache/
