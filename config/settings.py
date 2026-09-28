@@ -200,6 +200,23 @@ if env.bool("DJANGO_USE_S3", default=False):
         AWS_S3_ENDPOINT_URL, AWS_STORAGE_BUCKET_NAME
     )
 
+# --- Log ---------------------------------------------------------------------
+# Com DEBUG=False, o padrão do Django manda os erros 500 por e-mail aos ADMINS e
+# não escreve nada no console — e não há e-mail configurado. No Render isso
+# significa erro sem rastro nenhum no painel de Logs. Aqui o logger `django`
+# escreve no console (o stderr do gunicorn, que o Render coleta) em qualquer
+# ambiente, com o traceback completo dos 500.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        # Sem propagar: senão, o mesmo erro sairia duas vezes (aqui e no root).
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
+
 # --- Django REST Framework -------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
