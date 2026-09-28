@@ -12,7 +12,7 @@
 | **Escopo** | Deixar backend e frontend prontos para rodar fora do Docker local (PRs S e T) e publicar a branch `staging` dos dois em serviços gerenciados gratuitos, com banco e Storage próprios de homologação |
 | **Fora de escopo** | Produção, domínio próprio, e-mail, keep-alive do backend, imagens Docker em registry, dados reais de pessoas, qualquer mudança de contrato da API ou de tela |
 | **Repositórios** | `apps/ecosol-backend` (PR S) · `apps/ecosol-frontend` (PR T) · painéis do Supabase, Render e Vercel (Parte manual) |
-| **Status** | Não executado |
+| **Status** | Executado em 27/09/2026 — backend em https://ecosol-backend-homolog.onrender.com, site em https://ecosol-frontend.vercel.app |
 
 ---
 
