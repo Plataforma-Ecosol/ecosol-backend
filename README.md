@@ -148,10 +148,11 @@ $env:DJANGO_SECRET_KEY    = "so-para-este-terminal"
 $env:DJANGO_DB_DIRECT     = "True"
 $env:DATABASE_DIRECT_URL  = "<Session pooler 5432 do ecosol-homolog>"
 
-# 2. Conferir o destino ANTES de escrever qualquer coisa. Tem de aparecer o
-#    host do pooler, e a URL colada tem de ter o usuário postgres.<ref DO
-#    HOMOLOG>. Se aparecer outro projeto, PARE.
-python -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings');django.setup();from django.conf import settings as s;print(s.DATABASES['default']['HOST'])"
+# 2. Conferir o destino ANTES de escrever qualquer coisa. Quem decide é a
+#    linha USER: tem de ser postgres.<ref DO HOMOLOG>, e PORT tem de ser 5432.
+#    O HOST não basta — é o mesmo para produção e homologação, os dois em
+#    São Paulo. Se o USER tiver outro ref, PARE.
+python -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings');django.setup();from django.conf import settings as s;d=s.DATABASES['default'];print('HOST:',d['HOST']);print('USER:',d['USER']);print('PORT:',d['PORT'])"
 
 # 3. Aplicar as migrations e criar o superusuário.
 python manage.py migrate
