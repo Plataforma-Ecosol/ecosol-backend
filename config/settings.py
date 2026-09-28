@@ -12,7 +12,7 @@ from pathlib import Path
 
 import environ
 
-from config.ambiente import hosts_permitidos
+from config.ambiente import dominio_publico_supabase, hosts_permitidos
 
 # .../apps/ecosol-backend
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -194,6 +194,11 @@ if env.bool("DJANGO_USE_S3", default=False):
     AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="sa-east-1")
     AWS_QUERYSTRING_AUTH = False  # imagens de divulgação são públicas
     AWS_DEFAULT_ACL = None
+    # A URL que a API entrega aponta para a leitura PÚBLICA do bucket, e não
+    # para o endpoint S3, que só aceita requisição assinada (403 no navegador).
+    AWS_S3_CUSTOM_DOMAIN = dominio_publico_supabase(
+        AWS_S3_ENDPOINT_URL, AWS_STORAGE_BUCKET_NAME
+    )
 
 # --- Django REST Framework -------------------------------------------------
 REST_FRAMEWORK = {
