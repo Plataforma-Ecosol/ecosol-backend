@@ -12,7 +12,7 @@ from pathlib import Path
 
 import environ
 
-from config.ambiente import hosts_permitidos
+from config.ambiente import dominio_publico_supabase, hosts_permitidos
 
 # .../apps/ecosol-backend
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -194,6 +194,28 @@ if env.bool("DJANGO_USE_S3", default=False):
     AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="sa-east-1")
     AWS_QUERYSTRING_AUTH = False  # imagens de divulgação são públicas
     AWS_DEFAULT_ACL = None
+    # A URL que a API entrega aponta para a leitura PÚBLICA do bucket, e não
+    # para o endpoint S3, que só aceita requisição assinada (403 no navegador).
+    AWS_S3_CUSTOM_DOMAIN = dominio_publico_supabase(
+        AWS_S3_ENDPOINT_URL, AWS_STORAGE_BUCKET_NAME
+    )
+
+# --- Log ---------------------------------------------------------------------
+# Com DEBUG=False, o padrão do Django manda os erros 500 por e-mail aos ADMINS e
+# não escreve nada no console — e não há e-mail configurado. No Render isso
+# significa erro sem rastro nenhum no painel de Logs. Aqui o logger `django`
+# escreve no console (o stderr do gunicorn, que o Render coleta) em qualquer
+# ambiente, com o traceback completo dos 500.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        # Sem propagar: senão, o mesmo erro sairia duas vezes (aqui e no root).
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
 
 # --- Django REST Framework -------------------------------------------------
 REST_FRAMEWORK = {

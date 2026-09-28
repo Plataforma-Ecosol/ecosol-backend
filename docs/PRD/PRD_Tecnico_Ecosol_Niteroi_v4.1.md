@@ -4,7 +4,7 @@
 
 Centro Público de Referência em Economia Solidária (Casa Paul Singer) · ITES / IFRJ Campus Niterói
 
-**Versão:** v4.1 (implementação em andamento — scaffold do backend, ambiente Docker de desenvolvimento local, repositório/CI/proteção da main, models e conexão ao Supabase, endpoints públicos de Coletivos, Eventos e Pontos de Interesse, área administrativa no Django Admin e **frontend público em Next.js**)
+**Versão:** v4.1 (implementação em andamento — scaffold do backend, ambiente Docker de desenvolvimento local, repositório/CI/proteção da main, models e conexão ao Supabase, endpoints públicos de Coletivos, Eventos e Pontos de Interesse, área administrativa no Django Admin, **frontend público em Next.js** e **ambiente de homologação**)
 
 **Tipo de aplicação:** Aplicação web (frontend com renderização no servidor) + API RESTful.
 
@@ -67,6 +67,10 @@ Centro Público de Referência em Economia Solidária (Casa Paul Singer) · ITES
 # 0. O que mudou nesta versão
 
 Esta subversão não muda decisões nem escopo — registra o andamento da construção. Já foram entregues o scaffold do backend, o ambiente Docker de desenvolvimento local, a configuração de repositório/CI/proteção da main, os models com conexão ao Supabase, os três endpoints públicos, a área administrativa no Django Admin e o **frontend público em Next.js** (Seção 11, itens 4, 5 e 6 — concluídos). O detalhamento está na seção "Status de implementação". As decisões das seções de 1 a 8 permanecem válidas e inalteradas.
+
+- **Ambiente de homologação no ar (novo).** A branch `staging` dos dois repositórios está publicada: o backend em <https://ecosol-backend-homolog.onrender.com> e o site em <https://ecosol-frontend.vercel.app>, com banco e Storage num projeto Supabase **próprio de homologação**, separado do de produção, e somente dados fictícios. É onde a Sprint Review acontece. O site de homologação não é indexável por buscadores. Detalhes na Seção 12.
+
+- **Render para o Django (escolha registrada).** As Seções 2.5 e 8.5 citavam "Render/Railway". Fica o Render: o plano gratuito cobre um serviço ligado o mês inteiro, e o do Railway é só um crédito de teste. Não muda a decisão 8.5 — escolhe entre as duas opções que ela já previa.
 
 - **Frontend público entregue (novo).** A Interface 1 (Seção 5.1) saiu do papel: página inicial, listagem de coletivos com busca e filtros, perfil por slug, agenda de eventos e mapa dos pontos de interesse, todos renderizados no servidor. Confirma a decisão 8.1 na prática. Uma consequência do Next 16 ajusta a Seção 7: as páginas deixam de ser pré-renderizadas no build e passam a ser renderizadas **sob demanda**, com o cache de `fetch` sustentando o desempenho — o motivo está na Seção 12.
 
@@ -160,7 +164,7 @@ A stack passou por revisão item a item à luz do modelo de dados e dos objetivo
 
 ## 2.5. Empacotamento e hospedagem
 
-O sistema é empacotado em Docker desde o início (Django, Next.js e Postgres como containers, orquestrados por docker-compose), o que padroniza o ambiente da equipe e torna a reaplicabilidade real. No MVP, o deploy usa serviços gerenciados (Next.js na Vercel; Django em Render/Railway; banco no Supabase), evitando trabalho de infraestrutura. Auto-hospedagem em servidor próprio (VPS) fica viável no futuro sem retrabalho (decisão 8.5).
+O sistema é empacotado em Docker desde o início (Django, Next.js e Postgres como containers, orquestrados por docker-compose), o que padroniza o ambiente da equipe e torna a reaplicabilidade real. No MVP, o deploy usa serviços gerenciados (Next.js na Vercel; Django no Render; banco no Supabase), evitando trabalho de infraestrutura. Auto-hospedagem em servidor próprio (VPS) fica viável no futuro sem retrabalho (decisão 8.5).
 
 **Três repositórios, e a orquestração em um deles.** O código vive em `ecosol-backend` e `ecosol-frontend`; a orquestração dos três serviços vive em `ecosol-infra`, que não tem código de aplicação — só descreve como as peças se ligam. Esse repositório **não redeclara** o banco nem o backend: ele os importa (`include`) do compose que já existe dentro do `ecosol-backend`, de modo que cada serviço é descrito uma vez, no repositório do código que o executa. Duas cópias das mesmas definições foi exatamente como a pasta de infraestrutura anterior envelheceu em silêncio.
 
@@ -406,7 +410,7 @@ Base legal do tratamento, política de retenção e procedimento para solicitaç
 
 **Decisão:** empacotar em Docker desde o início e, no MVP, fazer deploy em serviços gerenciados.
 
-**Motivo:** Docker padroniza o ambiente da equipe e torna a reaplicabilidade concreta (subir em outra cidade vira um comando). Serviços gerenciados (Vercel para o Next.js; Render/Railway para o Django; Supabase para o banco) tiram o trabalho de infraestrutura durante o MVP.
+**Motivo:** Docker padroniza o ambiente da equipe e torna a reaplicabilidade concreta (subir em outra cidade vira um comando). Serviços gerenciados (Vercel para o Next.js; Render para o Django; Supabase para o banco) tiram o trabalho de infraestrutura durante o MVP. O Render foi escolhido sobre o Railway, também cogitado, porque o plano gratuito dele mantém um serviço ligado o mês inteiro; o do Railway é só um crédito de teste.
 
 **Benefício futuro:** por já estar em Docker, migrar para VPS e auto-hospedagem é possível sem reescrever nada.
 
@@ -547,11 +551,25 @@ Esta seção registra o que já foi construído, sem alterar as decisões e o es
 
 - **Endpoints de Eventos e Pontos de Interesse** conforme o padrão da Seção 9 (Seção 11, item 6): serializer explícito, viewset somente leitura, filtros, otimização anti-N+1 e teste de exposição. A agenda recorta o tempo por `?periodo=` — e o recorte é "ainda em aberto", não "começa no futuro", para que uma feira de três dias não suma da agenda justamente enquanto acontece. Pontos de Interesse expõem latitude/longitude, por serem a única entidade georreferenciada.
 
-- **Frontend público em Next.js** (Seção 11, item 5), em repositório próprio: página inicial, listagem de coletivos com busca e filtros, perfil por slug, agenda com as visões "próximos" e "já aconteceram", e o mapa em Leaflet/OSM. Todo acesso à API acontece no servidor — nenhum componente de cliente chama o Django —, o que mantém as páginas indexáveis e dispensa CORS no backend. Nove arquivos de teste, rodados no CI junto com lint, checagem de tipos e `next build`. Detalhamento em `ecosol-frontend/docs/PRD/PRD_Implementacao_Frontend_Publico_v1.md`.
+- **Frontend público em Next.js** (Seção 11, item 5), em repositório próprio: página inicial, listagem de coletivos com busca e filtros, perfil por slug, agenda com as visões "próximos" e "já aconteceram", e o mapa em Leaflet/OSM. Todo acesso à API acontece no servidor — nenhum componente de cliente chama o Django —, o que mantém as páginas indexáveis e dispensa CORS no backend. Doze arquivos de teste (71 casos), rodados no CI junto com lint, checagem de tipos e `next build`. Detalhamento em `ecosol-frontend/docs/PRD/PRD_Implementacao_Frontend_Publico_v1.md`.
 
 - **Renderização sob demanda, e não no build.** O `next build` do CI roda sem backend no ar; pré-renderizar consultando a API derrubaria o build com `ECONNREFUSED` a cada pull request. A camada de acesso interrompe a pré-renderização, e as páginas passam a ser renderizadas a cada requisição, com o cache de `fetch` (60 s nas listagens, 300 s nos detalhes) sustentando o requisito de desempenho da Seção 7. É ajuste de mecanismo, não de decisão: a renderização continua no servidor, que é o que a 8.1 exige.
 
-- Suíte do backend com **109 casos**, verde e bloqueante no CI: telas e guardas do Admin (25), endpoint de Eventos (21), de Pontos de Interesse (19), de Coletivos com a regressão de LGPD (17), histórico de slug (11), models (8), ordenação estável (6) e fumaça (2). O CI roda lint (ruff), checagem de paridade entre models e migrations, e os testes, em todo pull request.
+- **Ambiente de homologação** (fatia detalhada em `docs/PRD/PRD_Implementacao_Homologacao_v1.md`). A branch `staging` dos dois repositórios está publicada em serviços gerenciados gratuitos:
+
+  | Peça | Endereço | Onde |
+  |---|---|---|
+  | Site público | <https://ecosol-frontend.vercel.app> | Vercel, branch de produção do projeto = `staging` |
+  | Backend (API e Admin) | <https://ecosol-backend-homolog.onrender.com> | Render (plano Free), imagem do `Dockerfile`, branch `staging` |
+  | Banco e imagens | projeto Supabase `ecosol-homolog` | Postgres e bucket `divulgacao` próprios, **separados** dos de produção |
+
+  Os dois serviços publicam sozinhos a cada merge na `staging`. O banco tem **somente dados fictícios**: dado real de pessoa só entra depois do documento da Seção 6.4. A separação por projeto torna físico o isolamento que o incidente de testes registrado abaixo mostrou ser frágil quando é só convenção.
+
+  Para rodar fora do docker-compose, o backend passou a servir os estáticos do Admin pelo WhiteNoise, a confiar no HTTPS do proxy do Render, a aceitar a origem do login do Admin e a escutar na porta que o serviço injeta — tudo por variável de ambiente, com padrão que mantém o ambiente local e o CI como estavam. O site de homologação **não é indexável**: `robots.txt` com `Disallow: /` e `noindex, nofollow` em todas as páginas, por uma variável (`SITE_INDEXAVEL=false`). O propósito do site oficial é ser encontrado; justamente por isso, a homologação não pode ser.
+
+  A primeira verificação ponta a ponta achou dois defeitos que o ambiente local escondia, ambos corrigidos em código: a URL das imagens apontava para o endpoint S3 do Supabase, que exige assinatura (a foto estava no bucket, pública, e o site a mostrava quebrada); e, com `DEBUG=False`, os erros 500 não eram escritos em lugar nenhum que o painel do Render mostrasse.
+
+- Suíte do backend com **130 casos**, verde e bloqueante no CI: telas e guardas do Admin (25), endpoint de Eventos (21), de Pontos de Interesse (19), de Coletivos com a regressão de LGPD (17), prontidão para deploy (11), histórico de slug (11), URL pública de imagens e log de erros (10), models (8), ordenação estável (6) e fumaça (2). O CI roda lint (ruff), checagem de paridade entre models e migrations, e os testes, em todo pull request.
 
 - **Ordenação estável nas três listagens.** Um filtro de ordenação próprio substitui o do DRF e acrescenta a chave primária como último critério (Seção 9.1). Os testes verificam o `ORDER BY` emitido, e não a ordem devolvida: com base pequena o banco costuma devolver na ordem física, e um teste de comparação de páginas passaria mesmo com o defeito presente.
 
@@ -566,5 +584,9 @@ Pendências operacionais (não de código)
   Fica registrado como decisão operacional: **a suíte roda dentro do container**. Rodar da máquina exige apontar explicitamente para o Postgres local.
 
 - **Versionamento do bucket de imagens desligado.** O bucket está com versionamento `Suspended`, então objeto sobrescrito não volta. Não custou nada no incidente acima, porque não havia imagem real armazenada — mas vale ligar antes de a equipe começar a subir material de divulgação de verdade.
+
+- **Limites do plano gratuito na homologação.** O backend no Render Free **dorme após 15 minutos** sem uso e leva cerca de um minuto para acordar: antes de cada Sprint Review, abrir o site uns minutos antes. O Render Free também não tem terminal (migrations rodam da máquina de quem desenvolve, com o `.env` ignorado) e **bloqueia SMTP** — o cartão de e-mail vai precisar de um provedor com envio por API HTTP. O projeto Supabase gratuito é **pausado após 7 dias** sem uso; reativar é um clique no painel.
+
+- **A correção da URL das imagens ainda não está na `main`.** O defeito descrito acima vale para qualquer ambiente com Storage do Supabase, inclusive a produção. A correção entrou pela `staging` e chega à `main` no próximo release.
 
 - **Documentar a base legal do tratamento**, a política de retenção e o procedimento para solicitações de titulares (Seção 6.4) — obrigatório antes do primeiro cadastro com dado real de pessoa. Ganha urgência com o pedido de gráficos socioeconômicos registrado em 11.1.

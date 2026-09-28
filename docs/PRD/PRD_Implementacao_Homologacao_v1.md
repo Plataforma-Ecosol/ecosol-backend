@@ -12,7 +12,7 @@
 | **Escopo** | Deixar backend e frontend prontos para rodar fora do Docker local (PRs S e T) e publicar a branch `staging` dos dois em serviços gerenciados gratuitos, com banco e Storage próprios de homologação |
 | **Fora de escopo** | Produção, domínio próprio, e-mail, keep-alive do backend, imagens Docker em registry, dados reais de pessoas, qualquer mudança de contrato da API ou de tela |
 | **Repositórios** | `apps/ecosol-backend` (PR S) · `apps/ecosol-frontend` (PR T) · painéis do Supabase, Render e Vercel (Parte manual) |
-| **Status** | Não executado |
+| **Status** | Executado em 27/09/2026 — backend em https://ecosol-backend-homolog.onrender.com, site em https://ecosol-frontend.vercel.app |
 
 ---
 
@@ -474,10 +474,10 @@ $env:DJANGO_DB_DIRECT     = "True"
 $env:DATABASE_DIRECT_URL  = "<Session pooler 5432 do ecosol-homolog>"
 
 # 2. Conferir o destino ANTES de escrever qualquer coisa.
-python -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings');django.setup();from django.conf import settings as s;print(s.DATABASES['default']['HOST'])"
-#    Tem de aparecer o host do pooler (aws-...pooler.supabase.com) e, na URL
-#    que você colou, o usuário postgres.<ref DO HOMOLOG>. Se aparecer outro
-#    projeto, PARAR.
+python -c "import django,os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings');django.setup();from django.conf import settings as s;d=s.DATABASES['default'];print('HOST:',d['HOST']);print('USER:',d['USER']);print('PORT:',d['PORT'])"
+#    Quem decide é a linha USER: tem de ser postgres.<ref DO HOMOLOG>, com
+#    PORT 5432. O HOST não basta — é o mesmo para produção e homologação, os
+#    dois em São Paulo. Se o USER tiver outro ref, PARAR.
 
 # 3. Aplicar as migrations.
 python manage.py migrate
@@ -565,6 +565,11 @@ exit
 | `prepared statement ... already exists` | `DJANGO_DB_POOLER` desligado com a URL 6543 | `DJANGO_DB_POOLER=True` |
 | Página do site dá erro 500 na primeira visita | Backend dormindo (Render Free) | Recarregar após ~1 minuto. Esperado; ver Seção 3.1 |
 | Imagem quebrada no site | Bucket não público, ou endpoint S3 de outro projeto | Conferir "Public bucket" e o `<ref>` do `AWS_S3_ENDPOINT_URL` |
+| Imagem quebrada, e a URL da API contém `/storage/v1/s3/` (403 ao abrir) | Backend sem `AWS_S3_CUSTOM_DOMAIN`: a URL aponta para o endpoint S3, que exige assinatura | Corrigido no código (`config/ambiente.py`); a URL certa contém `/storage/v1/object/public/` |
+| API responde `500` e o painel de Logs do Render não mostra nada | Com `DEBUG=False`, o padrão do Django manda o erro por e-mail e não escreve no console | Corrigido no código (`LOGGING` em `config/settings.py`); o traceback passa a sair em Logs |
+| `password authentication failed for user "postgres"` | Senha errada dentro da `DATABASE_URL` (as duas URLs do banco diferem só na porta) | Partir da URL que funcionou e trocar só `:5432` por `:6543` |
+| `robots.txt` com `Allow: /` na Vercel | `SITE_INDEXAVEL` ausente no ambiente Production, ou criada depois do build | No painel novo, as variáveis ficam em **Settings → Environments → Production**; criar e fazer **Redeploy** sem cache |
+| "No deployments found for staging" ao fazer Redeploy | A Vercel só cria deploy de uma branch com push nela | **Deployments → Create Deployment** com a referência `staging` |
 | Site inteiro fora e Supabase "Paused" | 7 dias sem uso no plano gratuito | Reativar no painel do Supabase |
 
 ---
