@@ -10,8 +10,10 @@ A segunda metade cobre o contrato da API (Seção 3) e o desempenho (anti-N+1).
 from decimal import Decimal
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from rede.models import Categoria, Coletivo, Pessoa
+from tests.helpers import PNG_MINIMO
 
 pytestmark = pytest.mark.django_db
 
@@ -24,6 +26,10 @@ CHAVES_SEM_CONTATOS = {
     "descricao",
     "bairro",
     "site",
+    # Foto: pública porque a equipe só a envia com autorização de uso de
+    # imagem das pessoas que aparecem nela (PRD de Fotos, seção 1).
+    "foto",
+    "foto_descricao",
     "categorias",
     "criado_em",
     "atualizado_em",
@@ -347,3 +353,36 @@ def test_listagem_nao_tem_n_mais_1(api, django_assert_num_queries):
 
     assert len(resposta.json()["results"]) == 10
     assert len(resposta.json()["results"][0]["categorias"]) == 3
+
+
+# --- Foto -------------------------------------------------------------------
+
+
+def test_foto_ausente_vem_null_e_presente_vem_url_absoluta(api):
+    """(17) Sem arquivo, `foto: null`, como o `imagem_capa` do ponto.
+
+    Aqui `null` é o certo, ao contrário dos contatos: a foto não tem
+    consentimento por campo, e a ausência dela não esconde dado nenhum.
+    """
+    Coletivo.objects.create(nome="Sem Foto", slug="sem-foto")
+    Coletivo.objects.create(
+        nome="Com Foto",
+        slug="com-foto",
+        foto=SimpleUploadedFile("foto.png", PNG_MINIMO, "image/png"),
+        foto_descricao="Integrantes do coletivo na barraca da feira",
+    )
+
+    sem_foto = api.get("/api/coletivos/sem-foto/").json()
+    com_foto = api.get("/api/coletivos/com-foto/").json()
+
+    assert sem_foto["foto"] is None
+    assert com_foto["foto"].startswith("http://testserver/media/coletivos/")
+    assert com_foto["foto"].endswith(".png")
+    assert com_foto["foto_descricao"] == "Integrantes do coletivo na barraca da feira"
+
+
+def test_foto_descricao_vazia_sai_como_texto_vazio(api, coletivo_completo):
+    """(18) Sem descrição, a chave existe e vem como string vazia, não `null`."""
+    dados = api.get(f"/api/coletivos/{coletivo_completo.slug}/").json()
+
+    assert dados["foto_descricao"] == ""

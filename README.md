@@ -235,8 +235,13 @@ cada registro exatamente uma vez.
 | `ordering` | string | `nome`, `-nome`, `criado_em`, `-criado_em`. Padrão: `nome` |
 
 **Campos da resposta:** `id`, `nome`, `slug`, `descricao`, `bairro`, `site`,
+`foto` (URL absoluta ou `null`), `foto_descricao` (texto, pode vir vazio),
 `categorias` (lista de `{id, nome, slug}`), `criado_em`, `atualizado_em` — e,
 quando houver consentimento, `telefone`, `email` e `instagram`.
+
+A foto não é contato: sem arquivo ela vem `null`, no mesmo formato do
+`imagem_capa` do ponto. A equipe só a envia com autorização de uso de imagem
+das pessoas que aparecem nela.
 
 **Duas regras de exposição**
 
@@ -389,6 +394,18 @@ públicos, por nenhum caminho.
 No ambiente local os uploads vão para `media/` (fora do Git) e são servidos pelo
 Django enquanto `DEBUG=True`. Em homologação e produção vão para o Supabase
 Storage, ligado por `DJANGO_USE_S3=True` — sem alteração de código.
+
+| Pasta | Origem | Nome do arquivo |
+|---|---|---|
+| `coletivos/` | Foto do coletivo (até 5 MB) | Único a cada envio: `coletivos/<uuid>.<ext>` |
+| `eventos/` | Galeria do evento | Nome original |
+| `pontos-de-interesse/` | Capa do ponto | Nome original |
+
+A foto do coletivo ignora o nome original de propósito. Com
+`AWS_S3_FILE_OVERWRITE` no padrão `True`, dois coletivos que enviassem
+`foto.jpg` gravariam a mesma chave, e o primeiro passaria a mostrar a foto do
+segundo. O nome novo a cada envio também muda a URL quando a foto é trocada, o
+que dispensa limpar cache. A foto antiga continua no bucket.
 
 ## Testes e lint
 

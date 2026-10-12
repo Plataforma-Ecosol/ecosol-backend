@@ -1,5 +1,37 @@
 """Coletivo — o nó central da rede da Economia Solidária."""
+import uuid
+from pathlib import Path
+
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
+
+#: Limite da foto do coletivo. Protege o espaço do bucket, e não a tela: o
+#: `next/image` reduz a foto na hora de mostrar.
+TAMANHO_MAXIMO_DA_FOTO = 5 * 1024 * 1024
+
+
+def caminho_da_foto(instancia, nome_original):
+    """Nome único no bucket: `coletivos/<uuid>.<ext>`.
+
+    O nome original é descartado de propósito. Com `AWS_S3_FILE_OVERWRITE` no
+    padrão `True`, dois coletivos que enviassem `foto.jpg` gravariam a mesma
+    chave, e o primeiro passaria a mostrar a foto do segundo, sem erro nenhum.
+    O nome novo a cada envio também resolve o cache: trocou a foto, mudou a URL.
+
+    Fica no nível do módulo para a migration conseguir referenciá-la.
+    """
+    extensao = Path(nome_original).suffix.lower()
+    return f"coletivos/{uuid.uuid4().hex}{extensao}"
+
+
+def validar_tamanho_da_foto(arquivo):
+    """Recusa foto acima de 5 MB, dizendo o tamanho do arquivo enviado."""
+    if arquivo.size > TAMANHO_MAXIMO_DA_FOTO:
+        megabytes = f"{arquivo.size / (1024 * 1024):.1f}".replace(".", ",")
+        raise ValidationError(
+            f"A foto tem {megabytes} MB. O limite é 5 MB.",
+            code="foto_grande_demais",
+        )
 
 
 class Coletivo(models.Model):
@@ -32,6 +64,19 @@ class Coletivo(models.Model):
         help_text="Público — dá contexto geográfico sem revelar o endereço.",
     )
     site = models.URLField("site", blank=True)
+
+    # --- Foto (pública) -----------------------------------------------------
+    # Pública sem flag por campo: a equipe só envia a foto com autorização de
+    # uso de imagem das pessoas que aparecem nela.
+    foto = models.ImageField(
+        "foto", upload_to=caminho_da_foto, null=True, blank=True,
+        validators=[validar_tamanho_da_foto],
+        help_text="Aparece no topo do cartão do coletivo. Até 5 MB.",
+    )
+    foto_descricao = models.CharField(
+        "descrição da foto", max_length=200, blank=True,
+        help_text="O que a foto mostra. É o texto lido por quem usa leitor de tela.",
+    )
 
     # --- Contatos (visibilidade condicional por consentimento) -------------
     telefone = models.CharField("telefone", max_length=40, blank=True)

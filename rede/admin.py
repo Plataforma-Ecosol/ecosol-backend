@@ -145,7 +145,7 @@ class ColetivoAdmin(admin.ModelAdmin):
     search_fields = ("nome", "descricao", "bairro", "cnpj")
     prepopulated_fields = {"slug": ("nome",)}
     filter_horizontal = ("categorias",)
-    readonly_fields = ("criado_em", "atualizado_em")
+    readonly_fields = ("previa_da_foto", "criado_em", "atualizado_em")
     inlines = [PessoaInline, ColetivoSlugAnteriorInline]
 
     fieldsets = (
@@ -157,6 +157,19 @@ class ColetivoAdmin(admin.ModelAdmin):
                     "Editar o slug troca o endereço público do coletivo. O endereço "
                     "antigo continua funcionando: ele é registrado automaticamente e "
                     "passa a redirecionar para o novo."
+                ),
+            },
+        ),
+        (
+            "Foto",
+            {
+                "fields": ("foto", "previa_da_foto", "foto_descricao"),
+                "description": (
+                    "Aparece no cartão do coletivo, no site. Só envie com autorização "
+                    "de uso de imagem das pessoas que aparecem na foto. Prefira foto "
+                    "na horizontal: o cartão corta as bordas para caber. Na descrição, "
+                    "diga o que a foto mostra (por exemplo, \"Integrantes do coletivo "
+                    "na barraca da feira\"). Ela é lida por quem usa leitor de tela."
                 ),
             },
         ),
@@ -236,6 +249,13 @@ class ColetivoAdmin(admin.ModelAdmin):
             .get_queryset(request)
             .annotate(_num_pessoas=Count("pessoas", distinct=True))
         )
+
+    @admin.display(description="prévia")
+    def previa_da_foto(self, obj):
+        """Miniatura da foto já salva — mesma ideia do `previa` da galeria."""
+        if not obj.pk or not obj.foto:
+            return "—"
+        return format_html('<img src="{}" style="height: 120px;" />', obj.foto.url)
 
     @admin.display(description="pessoas", ordering="_num_pessoas")
     def num_pessoas(self, obj):

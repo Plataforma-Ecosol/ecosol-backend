@@ -45,9 +45,10 @@ class CategoriaResumoSerializer(serializers.ModelSerializer):
 class ColetivoSerializer(serializers.ModelSerializer):
     """Coletivo como ele aparece na API pública.
 
-    Os campos seguem exatamente o contrato da Seção 3.4 do PRD, nesta ordem.
-    Os três últimos — os contatos — só existem na resposta se o coletivo tiver
-    dado o consentimento correspondente.
+    Os campos seguem exatamente o contrato da Seção 3.4 do PRD, nesta ordem
+    (com `foto` e `foto_descricao` do PRD de Fotos). Os três últimos — os
+    contatos — só existem na resposta se o coletivo tiver dado o
+    consentimento correspondente.
     """
 
     #: Mapa contato → flag de consentimento. Quem acrescentar um contato novo
@@ -71,6 +72,10 @@ class ColetivoSerializer(serializers.ModelSerializer):
             "descricao",
             "bairro",
             "site",
+            # Foto — `null` sem arquivo, como o `imagem_capa` do ponto. Não é
+            # contato: é enviada pela equipe com autorização de uso de imagem.
+            "foto",
+            "foto_descricao",
             # Relacionamento
             "categorias",
             # Datas
