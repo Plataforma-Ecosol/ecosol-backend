@@ -17,6 +17,7 @@ from rede.models import (
     Pessoa,
     PontoDeInteresse,
 )
+from rede.models.coletivo import caminho_da_foto, validar_tamanho_da_foto
 
 pytestmark = pytest.mark.django_db
 
@@ -98,3 +99,40 @@ def test_ponto_de_interesse_coletivo_opcional_e_tipo_por_choices():
     ponto.tipo = "inexistente"
     with pytest.raises(ValidationError):
         ponto.full_clean()
+
+
+# --- Foto do coletivo -------------------------------------------------------
+
+
+def test_caminho_da_foto_e_unico_por_envio():
+    """Dois envios de `foto.JPG` não podem gravar a mesma chave no bucket.
+
+    Com `AWS_S3_FILE_OVERWRITE=True`, a mesma chave faria um coletivo mostrar
+    a foto de outro, sem erro nenhum.
+    """
+    primeiro = caminho_da_foto(None, "foto.JPG")
+    segundo = caminho_da_foto(None, "foto.JPG")
+
+    assert primeiro != segundo
+    for caminho in (primeiro, segundo):
+        assert caminho.startswith("coletivos/")
+        assert caminho.endswith(".jpg")
+        assert "foto" not in caminho
+
+
+class _ArquivoFalso:
+    """Só o `size` que o validador lê: dispensa montar uma imagem válida."""
+
+    def __init__(self, size):
+        self.size = size
+
+
+def test_foto_acima_de_5_mb_e_recusada_com_o_tamanho_na_mensagem():
+    with pytest.raises(ValidationError) as erro:
+        validar_tamanho_da_foto(_ArquivoFalso(int(7.2 * 1024 * 1024)))
+
+    assert erro.value.messages == ["A foto tem 7,2 MB. O limite é 5 MB."]
+
+
+def test_foto_com_5_mb_exatos_passa():
+    validar_tamanho_da_foto(_ArquivoFalso(5 * 1024 * 1024))

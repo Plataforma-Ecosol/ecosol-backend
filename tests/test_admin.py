@@ -287,3 +287,16 @@ def test_contagem_de_pessoas_nao_infla_com_filtro_de_categoria(
 
     # Sem `distinct=True` este número seria 4 (2 categorias × 2 pessoas).
     assert linha._num_pessoas == 2
+
+
+def test_edicao_do_coletivo_mostra_o_bloco_da_foto(admin_logado, registros):
+    """A tela de edição abre com o bloco "Foto" e o aviso de autorização."""
+    url = reverse("admin:rede_coletivo_change", args=[registros["coletivo"].pk])
+    resposta = admin_logado.get(url)
+
+    assert resposta.status_code == 200
+    html = resposta.content.decode()
+    assert ">Foto<" in html
+    assert "autorização de uso de imagem" in html
+    # Sem foto salva, a prévia mostra só o travessão.
+    assert "prévia" in html.lower()
