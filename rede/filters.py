@@ -3,6 +3,8 @@
 A busca textual (`q`) não é filtro daqui: é o `SearchFilter` do DRF, com
 `search_fields` declarados na view e `SEARCH_PARAM = "q"` em settings.
 """
+from django import forms
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 from django_filters import rest_framework as filters
@@ -11,6 +13,60 @@ from rede.models import Coletivo, Evento, PontoDeInteresse
 
 #: Único formato de data aceito nos parâmetros do contrato público.
 FORMATO_ISO = ["%Y-%m-%d"]
+
+#: Teto de categorias combinadas numa consulta. Cada categoria é uma junção a
+#: mais no SQL: sem teto, uma URL com centenas de `categoria=` viraria uma
+#: consulta pesada de graça. O painel do site nunca chega perto disto.
+MAXIMO_DE_CATEGORIAS = 10
+
+
+class IdsField(forms.Field):
+    """Lista de ids inteiros, lida da chave repetida (`?categoria=1&categoria=3`).
+
+    O `SelectMultiple` é usado só pelo `value_from_datadict`, que lê a chave
+    com `getlist` — nada dele vai para a tela. Texto responde `400`, como o
+    `NumberFilter` que este campo substitui, para o contrato antigo continuar
+    valendo.
+    """
+
+    widget = forms.SelectMultiple
+
+    def to_python(self, value):
+        if not value:
+            return []
+        try:
+            ids = [int(item) for item in value]
+        except (TypeError, ValueError) as erro:
+            raise ValidationError(
+                "Informe o id numérico da categoria.", code="invalid",
+            ) from erro
+        if len(ids) > MAXIMO_DE_CATEGORIAS:
+            raise ValidationError(
+                f"Combine no máximo {MAXIMO_DE_CATEGORIAS} categorias.", code="max_value",
+            )
+        # Repetir um id não muda o resultado; tirar a duplicata poupa a junção.
+        return list(dict.fromkeys(ids))
+
+
+class CategoriasFilter(filters.Filter):
+    """Coletivos que estão em TODAS as categorias pedidas ("e", não "ou").
+
+    Um `.filter()` por categoria, encadeados: no Django, cada `.filter()` sobre
+    um M2M ganha a própria junção, e é isso que dá o "e". Num `.filter()` só,
+    `categorias__id__in=[1, 3]` daria o "ou" — e linhas repetidas, uma por
+    categoria que casou. Encadeado não repete: cada junção já está presa a um
+    id só.
+
+    Categoria inexistente não é erro: devolve lista vazia, como antes. Uma
+    categoria que saiu do cadastro não pode derrubar um link já compartilhado.
+    """
+
+    field_class = IdsField
+
+    def filter(self, qs, value):
+        for id_da_categoria in value or []:
+            qs = qs.filter(categorias__id=id_da_categoria)
+        return qs
 
 
 class ColetivoFilter(filters.FilterSet):
@@ -23,11 +79,10 @@ class ColetivoFilter(filters.FilterSet):
     da view fixa `ativo=True`.
     """
 
-    # `NumberFilter` é o que produz o 400 do contrato quando chega texto.
-    categoria = filters.NumberFilter(
-        field_name="categorias__id",
-        label="ID da categoria",
-    )
+    # Pode repetir: `?categoria=1&categoria=3` combina com "e" (PRD de
+    # componentes do frontend). Uma categoria só continua como antes, e texto
+    # continua respondendo 400.
+    categoria = CategoriasFilter(label="IDs das categorias (todas)")
     # Valor público, nunca logradouro.
     bairro = filters.CharFilter(lookup_expr="iexact", label="Bairro")
 

@@ -206,6 +206,8 @@ envelope do DRF (`count`, `next`, `previous`, `results`).
 | `GET /api/eventos/{slug}/` | Detalhe de um evento, buscado pelo slug |
 | `GET /api/pontos-de-interesse/` | Lista paginada dos pontos **ativos** |
 | `GET /api/pontos-de-interesse/{id}/` | Detalhe de um ponto, buscado pelo id |
+| `GET /api/filtros/coletivos/` | Opções do painel de filtros de coletivos (categorias e bairros) |
+| `GET /api/filtros/eventos/` | Opções do painel de filtros da agenda (bairros) |
 
 `ativo` **não** é parâmetro em nenhuma rota: é a chave de visibilidade
 pública, com que a equipe do Centro Público tira um registro do ar. Aceitá-lo
@@ -230,7 +232,7 @@ cada registro exatamente uma vez.
 | Parâmetro | Tipo | Comportamento |
 |---|---|---|
 | `q` | string | Busca textual, ignorando maiúsculas, em `nome` e `descricao` |
-| `categoria` | int | Filtra pelo id de uma categoria. Valor não numérico → `400` |
+| `categoria` | int, pode repetir | Filtra pelo id da categoria. Repetida (`?categoria=1&categoria=3`), traz só os coletivos que estão em **todas** — combina com "e", não com "ou". Máximo de 10. Valor não numérico ou acima do máximo → `400`; id inexistente → lista vazia |
 | `bairro` | string | Filtra por bairro, ignorando maiúsculas |
 | `ordering` | string | `nome`, `-nome`, `criado_em`, `-criado_em`. Padrão: `nome` |
 
@@ -257,6 +259,31 @@ das pessoas que aparecem nela.
 Nenhum dado de Pessoa, endereço, dado cadastral ou flag de consentimento é
 exposto por qualquer caminho. `bairro` é o único dado geográfico público.
 Isso é garantido por uma suíte de regressão de LGPD, bloqueante no CI.
+
+### Opções dos filtros
+
+`GET /api/filtros/coletivos/` e `GET /api/filtros/eventos/` dizem ao cliente
+o que oferecer num painel de filtros. Sem paginação: são listas curtas.
+
+```json
+// /api/filtros/coletivos/
+{ "categorias": [{ "id": 1, "nome": "Alimentação", "slug": "alimentacao" }],
+  "bairros": ["Centro", "Icaraí"] }
+
+// /api/filtros/eventos/
+{ "bairros": ["Centro", "Fonseca"] }
+```
+
+1. **Só o que está em uso por registro ativo.** Uma categoria sem coletivo
+   ativo levaria a um resultado vazio de propósito, e um bairro que só existe
+   num registro tirado do ar denunciaria que ele existe.
+2. **Um bairro por grafia.** "Centro" e "centro" já são o mesmo filtro
+   (`bairro` compara sem maiúsculas), então viram uma opção só, com a grafia
+   mais usada. Espaço sobrando não é limpo, porque o filtro não o ignora.
+3. **Ordem alfabética sem acento:** "Ícaro" vem entre "Barreto" e "Zona Sul".
+
+Ficam em `/api/filtros/`, e não em `/api/coletivos/filtros/`: lá, a rota
+esconderia o perfil de um coletivo cujo slug fosse `filtros`.
 
 ### Eventos
 

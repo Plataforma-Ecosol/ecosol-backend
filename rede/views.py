@@ -4,14 +4,20 @@ Somente leitura. A API pública expõe apenas o que é público — não há nen
 rota de escrita neste projeto, por decisão de arquitetura: o cadastro vive no
 Django Admin, atrás de autenticação.
 """
+import unicodedata
+
+from django.db.models import Count
 from django.http import HttpResponsePermanentRedirect
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 from rest_framework.reverse import reverse
+from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from rede.filters import ColetivoFilter, EventoFilter, PontoDeInteresseFilter
-from rede.models import Coletivo, ColetivoSlugAnterior, Evento, PontoDeInteresse
+from rede.models import Categoria, Coletivo, ColetivoSlugAnterior, Evento, PontoDeInteresse
 from rede.serializers import (
+    CategoriaResumoSerializer,
     ColetivoSerializer,
     EventoSerializer,
     PontoDeInteresseSerializer,
@@ -133,3 +139,79 @@ class PontoDeInteresseViewSet(ReadOnlyModelViewSet):
     search_fields = ["nome", "descricao", "endereco"]
     ordering_fields = ["nome"]
     ordering = ["nome"]
+
+
+# --- Opções dos filtros -----------------------------------------------------
+
+
+def _ordem_alfabetica(texto):
+    """Chave de ordenação que ignora acento e maiúscula.
+
+    Sem ela, "Ícaro" iria para depois de "Zona Norte": a ordem crua dos
+    caracteres põe toda letra acentuada depois do "z".
+    """
+    sem_acento = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+    return sem_acento.casefold()
+
+
+def bairros_em_uso(queryset):
+    """Bairros dos registros do queryset, um por grafia, em ordem alfabética.
+
+    O bairro é texto livre: o mesmo bairro aparece como "Centro" e "centro".
+    O filtro `bairro` da API compara com `iexact`, então as duas grafias já
+    são o mesmo filtro — e aqui viram uma opção só, para a lista não mostrar
+    "Centro" duas vezes. Fica a grafia mais usada, que é a que a equipe
+    costuma digitar.
+
+    Espaço sobrando NÃO é limpo: `iexact` não ignora espaço, e uma opção
+    "Centro" limpa não encontraria os registros gravados como "Centro ".
+    """
+    contagem = (
+        queryset.exclude(bairro="")
+        .values("bairro")
+        .annotate(total=Count("pk"))
+        .order_by("-total", "bairro")
+    )
+    por_grafia = {}
+    for linha in contagem:
+        # `setdefault`: a ordem por `-total` faz a grafia mais usada chegar primeiro.
+        por_grafia.setdefault(linha["bairro"].casefold(), linha["bairro"])
+    return sorted(por_grafia.values(), key=_ordem_alfabetica)
+
+
+class FiltrosDeColetivosView(APIView):
+    """Opções do painel de filtros da listagem de coletivos.
+
+    Só o que está em uso por algum coletivo **ativo**: uma categoria sem
+    coletivo ativo levaria a um resultado vazio de propósito, e um bairro de
+    coletivo tirado do ar denunciaria que ele existe. Sem paginação: são
+    listas curtas, e o painel precisa de todas de uma vez.
+
+    Fora de `/api/coletivos/` de propósito: `/api/coletivos/filtros/` ficaria
+    no lugar do perfil de um coletivo cujo slug fosse `filtros`.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        ativos = Coletivo.objects.filter(ativo=True)
+        categorias = (
+            Categoria.objects.filter(coletivos__ativo=True).distinct().order_by("nome")
+        )
+        return Response({
+            "categorias": CategoriaResumoSerializer(categorias, many=True).data,
+            "bairros": bairros_em_uso(ativos),
+        })
+
+
+class FiltrosDeEventosView(APIView):
+    """Opções do painel de filtros da agenda: os bairros dos eventos ativos.
+
+    As datas não precisam de opção: o cliente as escolhe num calendário, e a
+    API já recebe `de` e `ate`.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({"bairros": bairros_em_uso(Evento.objects.filter(ativo=True))})
