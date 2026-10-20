@@ -1,0 +1,187 @@
+# Tradução dos textos do Unfold (tema do Admin) que o Django não traduz.
+#
+# O Unfold não traz catálogo em português. Cada msgid aqui é o texto exato de
+# um template ou módulo do Unfold. Ao atualizar o Unfold, o teste
+# `test_todo_texto_do_unfold_sai_em_portugues` lista o texto novo sem tradução.
+#
+# Depois de editar este arquivo, compile o .mo (ver README). O teste
+# `test_traducao_compilada_bate_com_o_po` falha se o .mo ficar para trás.
+msgid ""
+msgstr ""
+"Project-Id-Version: ecosol-backend\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: pt_BR\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Add row"
+msgstr "Adicionar linha"
+
+msgid "After you've created a user, you’ll be able to edit more user options."
+msgstr "Depois de criar o usuário, você poderá editar as demais opções dele."
+
+msgid "All applications"
+msgstr "Todos os aplicativos"
+
+msgid "Apply Filters"
+msgstr "Aplicar filtros"
+
+msgid "Available shortcuts"
+msgstr "Atalhos disponíveis"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Changelist shortcuts"
+msgstr "Atalhos da listagem"
+
+msgid "Choose file to upload"
+msgstr "Escolher arquivo para enviar"
+
+msgid "Click to cancel"
+msgstr "Clique para cancelar"
+
+msgid "Click to download"
+msgstr "Clique para baixar"
+
+msgid "Command tool shortcuts"
+msgstr "Atalhos da busca rápida"
+
+msgid "Create new record"
+msgstr "Criar novo registro"
+
+msgid "Dark"
+msgstr "Escuro"
+
+msgid "Dataset not found. No action performed."
+msgstr "Conjunto de dados não encontrado. Nenhuma ação foi executada."
+
+msgid "Date"
+msgstr "Data"
+
+msgid "False"
+msgstr "Não"
+
+msgid "Forgotten your password or username?"
+msgstr "Esqueceu a senha ou o nome de usuário?"
+
+msgid "General"
+msgstr "Geral"
+
+msgid "Global shortcuts"
+msgstr "Atalhos gerais"
+
+msgid "Go back"
+msgstr "Voltar"
+
+msgid "Image preview"
+msgstr "Prévia da imagem"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Navigate"
+msgstr "Navegar"
+
+msgid "Next"
+msgstr "Próxima"
+
+msgid "No data"
+msgstr "Sem dados"
+
+msgid "No results found"
+msgstr "Nenhum resultado encontrado"
+
+msgid "Nothing matched your search"
+msgstr "Nada corresponde à sua busca"
+
+msgid "Open command tool"
+msgstr "Abrir a busca rápida"
+
+msgid "Open selection"
+msgstr "Abrir a seleção"
+
+msgid "Open selection in new tab"
+msgstr "Abrir a seleção em nova aba"
+
+msgid "Open shortcuts list"
+msgstr "Abrir a lista de atalhos"
+
+msgid "Previous"
+msgstr "Anterior"
+
+msgid "Recent searches"
+msgstr "Buscas recentes"
+
+msgid "Record picture"
+msgstr "Tirar foto"
+
+msgid "Reset filters"
+msgstr "Limpar filtros"
+
+msgid "Return to site"
+msgstr "Voltar ao site"
+
+msgid "Run"
+msgstr "Executar"
+
+msgid "Search apps and models..."
+msgstr "Buscar no menu…"
+
+msgid "Select"
+msgstr "Selecionar"
+
+msgid "Select action"
+msgstr "Selecionar ação"
+
+msgid "Select action to run"
+msgstr "Selecione a ação a executar"
+
+msgid "Select currency"
+msgstr "Selecionar moeda"
+
+msgid "Select record"
+msgstr "Selecionar registro"
+
+msgid "Select value"
+msgstr "Selecionar valor"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "This item will be deleted."
+msgstr "Este item será excluído."
+
+msgid "This page yielded into no results."
+msgstr "Esta página não trouxe resultados."
+
+msgid "Toggle dark/light mode"
+msgstr "Alternar tema claro/escuro"
+
+msgid "Toggle filter"
+msgstr "Mostrar ou ocultar filtro"
+
+msgid "Toggle password visibility"
+msgstr "Mostrar ou ocultar a senha"
+
+msgid "Toggle sidebar"
+msgstr "Mostrar ou ocultar o menu lateral"
+
+msgid "True"
+msgstr "Sim"
+
+msgid "Type to search"
+msgstr "Digite para buscar"
+
+msgid "Welcome"
+msgstr "Boas-vindas"
+
+msgid "Welcome back to"
+msgstr "Entrar na"
+
+msgid "You can not create nested object without parent"
+msgstr "Não é possível criar um registro aninhado sem o registro principal"
+
+msgid "You have been successfully logged out from the administration"
+msgstr "Você saiu da área da equipe."

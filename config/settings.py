@@ -11,8 +11,11 @@ de ambiente lidas do arquivo .env. Nenhum segredo é escrito neste arquivo.
 from pathlib import Path
 
 import environ
+from django.templatetags.static import static
+from django.urls import reverse_lazy
 
 from config.ambiente import dominio_publico_supabase, hosts_permitidos
+from config.identidade import AZUL, PRIMARIO, escala_oklch
 
 # .../apps/ecosol-backend
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -157,6 +160,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # --- Internacionalização ---------------------------------------------------
 LANGUAGE_CODE = "pt-br"
+# O Unfold não traz tradução para o português: só sai traduzido o texto que
+# coincide com o do Django ("Salvar", "Filtros"...). O resto ("Type to search",
+# "Welcome back to"...) está em locale/pt_BR, que vence os catálogos dos apps.
+LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
@@ -217,6 +224,108 @@ LOGGING = {
     "loggers": {
         # Sem propagar: senão, o mesmo erro sairia duas vezes (aqui e no root).
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
+
+# --- Área administrativa (Unfold) -------------------------------------------
+# Identidade da Casa Paul Singer no Admin, só por configuração: nenhum template
+# sobrescrito, nenhum CSS próprio. As cores vêm de `config/identidade.py`.
+#
+# Site público em outro domínio (Vercel). Sem a variável, vale o Next local.
+URL_SITE_PUBLICO = env("DJANGO_URL_SITE_PUBLICO", default="http://localhost:3000")
+
+
+def _marca(arquivo):
+    """Caminho estático de um arquivo da marca, resolvido a cada requisição."""
+    return lambda request: static(f"rede/marca/{arquivo}")
+
+
+def _item(titulo, icone, app, model):
+    """Item do menu lateral, visível só para quem pode ver o model.
+
+    `app` e `model` chegam como argumentos, então cada `lambda` captura os seus
+    (sem o erro clássico de `lambda` criada em laço, que veria só o último).
+    """
+    return {
+        "title": titulo,
+        "icon": icone,
+        "link": reverse_lazy(f"admin:{app}_{model}_changelist"),
+        "permission": lambda request: request.user.has_perm(f"{app}.view_{model}"),
+    }
+
+
+UNFOLD = {
+    "SITE_TITLE": "Área da equipe · Casa Paul Singer",
+    "SITE_HEADER": "Casa Paul Singer",
+    "SITE_SUBHEADER": "Área da equipe",
+    # Sem isto, o link padrão do Admin aponta para `/` do backend, que é 404.
+    "SITE_URL": URL_SITE_PUBLICO,
+    "SITE_ICON": {"light": _marca("logo.png"), "dark": _marca("logo.png")},
+    "SITE_FAVICONS": [
+        {"rel": "icon", "sizes": "any", "type": "image/x-icon", "href": _marca("favicon.ico")},
+        {"rel": "icon", "sizes": "512x512", "type": "image/png", "href": _marca("icon.png")},
+        {
+            "rel": "apple-touch-icon",
+            "sizes": "180x180",
+            "type": "image/png",
+            "href": _marca("apple-icon.png"),
+        },
+    ],
+    "SITE_DROPDOWN": [
+        {"icon": "open_in_new", "title": "Ver site público", "link": URL_SITE_PUBLICO},
+    ],
+    # Um tema só, claro, como o site (frontend, PR #7). Tira o seletor de tema.
+    "THEME": "light",
+    # O bege da marca entra aqui: a imagem lateral é o círculo da logo sobre o
+    # fundo bege. O dourado fica de fora do tema (pediria CSS próprio).
+    "LOGIN": {"image": _marca("login.png")},
+    # Tudo azul, como o site: `base` (fundos, bordas, texto) é a escala do site e
+    # `primary` (botões, links), a mesma escala deslocada para o 600 ser o azul da
+    # marca (ver config/identidade.py).
+    "COLORS": {
+        "base": escala_oklch(AZUL),
+        "primary": escala_oklch(PRIMARIO),
+        # O padrão do Unfold põe o texto no base-500/600/900, claro demais
+        # quando a base é azul. Mais escuro, o texto passa no AA sobre o branco
+        # e sobre o azul-100 (sutil 5,3:1, normal 8,6:1, destaque 13:1). Só o
+        # tema claro: as chaves `-dark` ficam no padrão.
+        "font": {
+            "subtle-light": "var(--color-base-700)",
+            "default-light": "var(--color-base-900)",
+            "important-light": "var(--color-base-950)",
+        },
+    },
+    "SIDEBAR": {
+        # A busca do menu só filtra os itens dele pelo nome. Com 7 itens, era
+        # mais ruído que ajuda.
+        "show_search": False,
+        # Menu montado à mão. Um model registrado e esquecido aqui some da
+        # navegação: `tests/test_identidade_admin.py` segura isso.
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Cadastros",
+                "items": [
+                    _item("Coletivos", "groups", "rede", "coletivo"),
+                    _item("Pessoas", "person", "rede", "pessoa"),
+                    _item("Categorias", "sell", "rede", "categoria"),
+                ],
+            },
+            {
+                "title": "Agenda e mapa",
+                "items": [
+                    _item("Eventos", "event", "rede", "evento"),
+                    _item("Pontos de interesse", "location_on", "rede", "pontodeinteresse"),
+                ],
+            },
+            {
+                "title": "Acesso",
+                "items": [
+                    _item("Usuários", "manage_accounts", "rede", "usuario"),
+                    _item("Grupos", "admin_panel_settings", "auth", "group"),
+                ],
+            },
+        ],
     },
 }
 

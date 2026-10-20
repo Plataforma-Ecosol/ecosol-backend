@@ -33,6 +33,7 @@ fora de qualquer repositório, essa promessa não se sustentava.
 |---|---|
 | `docs/PRD/PRD_Tecnico_Ecosol_Niteroi_v4.1.md` | Arquitetura, modelo de dados, decisões e status. O documento mestre. |
 | `docs/PRD/PRD_Implementacao_*.md` | Especificação de cada fatia entregue (models, endpoint de Coletivos, Django Admin, ambiente de homologação). |
+| `docs/PRD/PRD_Admin_Unfold_e_Identidade_Casa_Azul_v1.md` | Tema Unfold no Admin e identidade visual da Casa Azul (cores, logo, menu em grupos, link para o site público). |
 | `docs/GUIA_REVISAO_PR.md` | Como revisar um pull request neste projeto. |
 | `docs/revisoes/` | Revisões arquivadas. |
 
@@ -118,6 +119,7 @@ estáticos do Admin são servidos pelo WhiteNoise, sem serviço extra.
 | `AWS_STORAGE_BUCKET_NAME` | `divulgacao` |
 | `AWS_S3_ENDPOINT_URL` | `https://<ref-do-homolog>.supabase.co/storage/v1/s3` |
 | `AWS_S3_REGION_NAME` | `sa-east-1` |
+| `DJANGO_URL_SITE_PUBLICO` | `https://ecosol-frontend.vercel.app` (link "Ver site público" do Admin) |
 
 Os valores de verdade ficam **só no painel do Render**. Não defina `PORT`: o
 Render injeta sozinho. O host do serviço também entra em `ALLOWED_HOSTS` sem
@@ -367,6 +369,25 @@ O back-office da equipe do Centro Público, em **http://localhost:8001/admin/**.
 Substitui a planilha de cadastro por um formulário estruturado. Tudo em
 português; só entra quem tem conta — não há autocadastro.
 
+O visual é o do [Unfold](https://unfoldadmin.com/), com as cores, a logo e o
+nome da Casa Paul Singer, e o menu lateral é montado à mão em três grupos
+(Cadastros, Agenda e mapa, Acesso), cada item visível só para quem pode ver
+aquele cadastro. Tudo por configuração (`UNFOLD` no `config/settings.py`, cores
+em `config/identidade.py`), sem template nem CSS próprio. O link "Ver site
+público" usa `DJANGO_URL_SITE_PUBLICO` (sem a variável, `http://localhost:3000`).
+
+O Unfold não traz tradução para o português. Os textos dele que o Django não
+traduz ficam em `locale/pt_BR/LC_MESSAGES/django.po`, e o `.mo` compilado vai
+versionado, para o build e o CI não dependerem do gettext. Depois de editar o
+`.po`, recompile (a partir de `infra/`):
+
+```bash
+docker compose run --rm backend sh -c "apt-get update -qq && apt-get install -y -qq gettext && msgfmt --check -o locale/pt_BR/LC_MESSAGES/django.mo locale/pt_BR/LC_MESSAGES/django.po"
+```
+
+Ao atualizar o Unfold, `tests/test_identidade_admin.py` lista o texto novo que
+ficou sem tradução.
+
 ### Primeiro acesso
 
 Criar a conta inicial (uma vez, com o ambiente no ar):
@@ -389,7 +410,8 @@ grupo do Django existe e pode ser ligada depois, sem código.
 | **Categorias** | Slug automático; coluna com o número de coletivos |
 | **Eventos** | Galeria de imagens inline com miniatura; navegação por data |
 | **Pontos de Interesse** | Latitude/longitude em graus decimais, imagem de capa, vínculo opcional com coletivo |
-| **Usuários** | Contas da equipe (formulário padrão do Django, com senha em hash) |
+| **Usuários** | Contas da equipe (formulários de usuário do Django, com senha em hash) |
+| **Grupos** | Grupos de permissão do Django; sem uso no MVP (papel único) |
 
 ### As regras de visibilidade que o Admin opera
 

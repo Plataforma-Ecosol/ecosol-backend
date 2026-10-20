@@ -34,8 +34,8 @@ from rede.models import (
 )
 
 # --- Identidade da área administrativa -------------------------------------
-admin.site.site_header = "Plataforma Ecosol — Rede da Economia Solidária de Niterói"
-admin.site.site_title = "Ecosol · Administração"
+# Título da aba, nome e logo no topo do menu vêm de `UNFOLD` no settings.py. Só
+# o título da página inicial fica aqui: o Unfold não tem chave própria para ele.
 admin.site.index_title = "Administração"
 
 
