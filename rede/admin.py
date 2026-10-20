@@ -13,10 +13,14 @@ Tudo em português (requisito de Tecnologia Social). O Admin não altera o
 esquema: registrar um model aqui nunca gera migration.
 """
 from django.contrib import admin
+from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
 from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import Group
 from django.db.models import Count
 from django.urls import reverse
 from django.utils.html import format_html
+from unfold.admin import ModelAdmin, TabularInline
+from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
 from rede.models import (
     Categoria,
@@ -37,22 +41,38 @@ admin.site.index_title = "Administração"
 
 # --- Usuários (equipe do Centro Público) -----------------------------------
 @admin.register(Usuario)
-class UsuarioAdmin(UserAdmin):
+class UsuarioAdmin(UserAdmin, ModelAdmin):
     """Contas com acesso ao back-office.
 
-    Herda de `UserAdmin` — e não de `ModelAdmin` — de propósito: é o que
+    Herda de `UserAdmin` — e não só de `ModelAdmin` — de propósito: é o que
     preserva o formulário de senha com hash, os fieldsets de permissão e o
     "adicionar usuário" em duas etapas. Registrar um usuário customizado com um
-    ModelAdmin comum gravaria a senha como texto puro.
+    ModelAdmin comum gravaria a senha como texto puro. O `UserAdmin` vem
+    primeiro; o `ModelAdmin` do Unfold entra como segunda base só pelo visual,
+    junto com os formulários estilizados abaixo.
 
     Não há autocadastro: as contas são criadas aqui, pela própria equipe
     (PRD Técnico 3 — papel único de Administrador no MVP).
     """
 
+    form = UserChangeForm
+    add_form = UserCreationForm
+    change_password_form = AdminPasswordChangeForm
+
+
+# O Django registra o Group sozinho, com a classe dele. Registrar de novo com
+# o Unfold é o que dá a esta tela o mesmo visual das outras.
+admin.site.unregister(Group)
+
+
+@admin.register(Group)
+class GrupoAdmin(BaseGroupAdmin, ModelAdmin):
+    """Grupos de permissão. Sem uso no MVP (papel único), mas a tela existe."""
+
 
 # --- Categorias / segmentos -------------------------------------------------
 @admin.register(Categoria)
-class CategoriaAdmin(admin.ModelAdmin):
+class CategoriaAdmin(ModelAdmin):
     """Segmentos que classificam os coletivos (artesanato, alimentação…)."""
 
     list_display = ("nome", "slug", "num_coletivos")
@@ -75,7 +95,7 @@ class CategoriaAdmin(admin.ModelAdmin):
 
 
 # --- Inlines do Coletivo (somente leitura) ----------------------------------
-class PessoaInline(admin.TabularInline):
+class PessoaInline(TabularInline):
     """Quem compõe o coletivo — apenas para consulta.
 
     Pessoa tem ~25 campos, vários sensíveis. Editá-la aqui dentro geraria um
@@ -104,7 +124,7 @@ class PessoaInline(admin.TabularInline):
         return format_html('<a href="{}">abrir ficha</a>', url)
 
 
-class ColetivoSlugAnteriorInline(admin.TabularInline):
+class ColetivoSlugAnteriorInline(TabularInline):
     """Endereços antigos que ainda redirecionam para este coletivo.
 
     O histórico é gerado pelo `save()` do model quando alguém edita o slug; o
@@ -126,7 +146,7 @@ class ColetivoSlugAnteriorInline(admin.TabularInline):
 
 # --- Coletivos --------------------------------------------------------------
 @admin.register(Coletivo)
-class ColetivoAdmin(admin.ModelAdmin):
+class ColetivoAdmin(ModelAdmin):
     """Cadastro dos coletivos — o nó central da rede.
 
     É aqui que se operam as chaves de visibilidade pública. O serializer
@@ -265,7 +285,7 @@ class ColetivoAdmin(admin.ModelAdmin):
 
 # --- Pessoas ----------------------------------------------------------------
 @admin.register(Pessoa)
-class PessoaAdmin(admin.ModelAdmin):
+class PessoaAdmin(ModelAdmin):
     """Cadastro das pessoas que compõem os coletivos.
 
     Nenhum dado de Pessoa é exposto na interface pública, em nenhuma hipótese.
@@ -341,7 +361,7 @@ class PessoaAdmin(admin.ModelAdmin):
 
 
 # --- Eventos ----------------------------------------------------------------
-class ImagemEventoInline(admin.TabularInline):
+class ImagemEventoInline(TabularInline):
     """Galeria de divulgação do evento.
 
     São imagens públicas (cartaz, foto de divulgação) — não dado pessoal. A
@@ -363,7 +383,7 @@ class ImagemEventoInline(admin.TabularInline):
 
 
 @admin.register(Evento)
-class EventoAdmin(admin.ModelAdmin):
+class EventoAdmin(ModelAdmin):
     """Agenda pública da Economia Solidária (feiras, encontros, formações)."""
 
     list_display = ("titulo", "data_inicio", "data_fim", "ativo")
@@ -386,7 +406,7 @@ class EventoAdmin(admin.ModelAdmin):
 
 # --- Pontos de interesse ----------------------------------------------------
 @admin.register(PontoDeInteresse)
-class PontoDeInteresseAdmin(admin.ModelAdmin):
+class PontoDeInteresseAdmin(ModelAdmin):
     """O que aparece no mapa público.
 
     Única entidade georreferenciada publicamente — latitude/longitude vivem só

@@ -39,6 +39,24 @@ def test_admin_serve_css_sem_debug(settings, tmp_path, client):
     assert resposta["Content-Type"].startswith("text/css")
 
 
+def test_admin_serve_css_do_unfold_sem_debug(settings, tmp_path, client):
+    """O mesmo caminho do teste acima, para os estáticos do tema (Unfold).
+
+    O nome do arquivo é procurado, e não fixado: o Unfold lança versão quase
+    toda semana e pode mudar a estrutura da pasta.
+    """
+    settings.STATIC_ROOT = tmp_path / "staticfiles"
+    call_command("collectstatic", interactive=False, verbosity=0)
+
+    css = next((settings.STATIC_ROOT / "unfold").rglob("*.css"))
+    caminho = css.relative_to(settings.STATIC_ROOT).as_posix()
+
+    resposta = client.get(f"/static/{caminho}")
+
+    assert resposta.status_code == 200
+    assert resposta["Content-Type"].startswith("text/css")
+
+
 # --- Origem do CSRF no login do Admin -------------------------------------------
 
 

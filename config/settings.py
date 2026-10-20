@@ -60,6 +60,9 @@ CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 
 # --- Aplicações ------------------------------------------------------------
 INSTALLED_APPS = [
+    # Antes do `django.contrib.admin`: é o que faz os templates do Unfold valerem
+    # no lugar dos do Admin.
+    "unfold",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
