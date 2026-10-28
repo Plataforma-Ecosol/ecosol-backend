@@ -221,3 +221,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Tradução do Unfold: o .mo vai versionado, para o build e o CI não
+# dependerem do gettext (ver README, "Área administrativa").
+!/locale/pt_BR/LC_MESSAGES/django.mo

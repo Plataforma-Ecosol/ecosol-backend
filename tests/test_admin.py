@@ -16,6 +16,10 @@ from django.contrib import admin as django_admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 from django.urls import reverse
+from unfold import forms as unfold_forms
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from unfold.admin import StackedInline as UnfoldStackedInline
+from unfold.admin import TabularInline as UnfoldTabularInline
 
 from rede.models import (
     Categoria,
@@ -300,3 +304,58 @@ def test_edicao_do_coletivo_mostra_o_bloco_da_foto(admin_logado, registros):
     assert "autorização de uso de imagem" in html
     # Sem foto salva, a prévia mostra só o travessão.
     assert "prévia" in html.lower()
+
+
+# --- 8.4. Tema do Unfold (card 70) ------------------------------------------
+# Trocar o tema não pode mudar regra nenhuma; estes testes só garantem que toda
+# tela herda do Unfold, para que uma tela nova registrada com a classe do Django
+# não fique sem estilo, e que o caminho da senha continua com hash.
+
+
+@pytest.mark.parametrize(
+    "model", list(django_admin.site._registry), ids=lambda m: m._meta.label_lower
+)
+def test_toda_tela_herda_do_unfold(model):
+    """Inclui o `Group`, que o Django registra sozinho com a classe dele."""
+    assert isinstance(django_admin.site._registry[model], UnfoldModelAdmin)
+
+
+@pytest.mark.parametrize(
+    "model", list(django_admin.site._registry), ids=lambda m: m._meta.label_lower
+)
+def test_todo_inline_herda_do_unfold(model):
+    for inline in django_admin.site._registry[model].inlines:
+        assert issubclass(inline, (UnfoldTabularInline, UnfoldStackedInline))
+
+
+def test_usuario_usa_os_formularios_do_unfold():
+    usuario_admin = django_admin.site._registry[Usuario]
+
+    assert usuario_admin.form is unfold_forms.UserChangeForm
+    assert usuario_admin.add_form is unfold_forms.UserCreationForm
+    assert usuario_admin.change_password_form is unfold_forms.AdminPasswordChangeForm
+
+
+def test_troca_de_senha_pelo_admin_grava_hash(admin_logado, registros):
+    """O formulário de senha do Unfold continua passando pelo `set_password`.
+
+    A rota se chama `auth_user_password_change` mesmo com usuário customizado:
+    o nome é fixo no `UserAdmin` do Django.
+    """
+    usuario = registros["usuario"]
+    url = reverse("admin:auth_user_password_change", args=[usuario.pk])
+    assert admin_logado.get(url).status_code == 200
+
+    nova = "senha-nova-bem-longa-456"
+    resposta = admin_logado.post(url, {"password1": nova, "password2": nova})
+
+    assert resposta.status_code == 302
+    usuario.refresh_from_db()
+    assert usuario.check_password(nova)
+    assert usuario.password != nova
+
+
+@pytest.mark.parametrize("tela", ["changelist", "add"])
+def test_telas_do_grupo_abrem(admin_logado, tela):
+    """Os testes de fumaça acima só cobrem o app `rede`."""
+    assert admin_logado.get(reverse(f"admin:auth_group_{tela}")).status_code == 200
