@@ -241,7 +241,10 @@ def _marca(arquivo):
 
 
 def _item(titulo, icone, app, model):
-    """Item do menu lateral, visível só para quem pode ver o model.
+    """Item do menu lateral, visível só para quem pode abrir a lista do model.
+
+    Ver ou editar: o Django abre a lista para quem tem qualquer uma das duas
+    (`ModelAdmin.has_view_permission`), e o menu acompanha.
 
     `app` e `model` chegam como argumentos, então cada `lambda` captura os seus
     (sem o erro clássico de `lambda` criada em laço, que veria só o último).
@@ -250,7 +253,8 @@ def _item(titulo, icone, app, model):
         "title": titulo,
         "icon": icone,
         "link": reverse_lazy(f"admin:{app}_{model}_changelist"),
-        "permission": lambda request: request.user.has_perm(f"{app}.view_{model}"),
+        "permission": lambda request: request.user.has_perm(f"{app}.view_{model}")
+        or request.user.has_perm(f"{app}.change_{model}"),
     }
 
 

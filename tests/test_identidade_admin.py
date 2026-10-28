@@ -175,6 +175,22 @@ def test_menu_respeita_a_permissao_de_ver(db):
     assert visiveis == {"Coletivos"}
 
 
+def test_menu_mostra_o_item_para_quem_so_pode_editar(db):
+    """O Django abre a lista para quem só tem `change_`; o menu não pode esconder."""
+    usuario = get_user_model().objects.create_user(
+        username="editora", password="senha-de-teste-123", is_staff=True
+    )
+    usuario.user_permissions.add(
+        Permission.objects.get(codename="change_evento", content_type__app_label="rede")
+    )
+    request = RequestFactory().get("/admin/")
+    request.user = get_user_model().objects.get(pk=usuario.pk)  # sem cache de permissão
+
+    visiveis = {item["title"] for item in _itens_do_menu() if item["permission"](request)}
+
+    assert visiveis == {"Eventos"}
+
+
 # --- Português ----------------------------------------------------------------------
 PO = Path(django_settings.BASE_DIR) / "locale/pt_BR/LC_MESSAGES/django.po"
 MARCADORES_DE_TEXTO = (
