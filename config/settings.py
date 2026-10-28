@@ -271,7 +271,10 @@ UNFOLD = {
             "href": _marca("apple-icon.png"),
         },
     ],
+    # Com o dropdown, a logo deixa de ser link para o início do Admin e só abre
+    # este menu (`unfold/helpers/site_icon.html`). Por isso o início vem nele.
     "SITE_DROPDOWN": [
+        {"icon": "home", "title": "Início do Admin", "link": reverse_lazy("admin:index")},
         {"icon": "open_in_new", "title": "Ver site público", "link": URL_SITE_PUBLICO},
     ],
     # Um tema só, claro, como o site (frontend, PR #7). Tira o seletor de tema.

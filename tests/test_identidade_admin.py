@@ -129,6 +129,13 @@ def test_inicio_tem_a_logo_e_o_link_do_site_publico(admin_logado):
     assert "Ver site público" in html
 
 
+def test_dropdown_da_logo_leva_ao_inicio_do_admin():
+    """Com `SITE_DROPDOWN`, a logo não é mais link: o início tem que estar no menu."""
+    links = {str(item["link"]) for item in django_settings.UNFOLD["SITE_DROPDOWN"]}
+
+    assert reverse("admin:index") in links
+
+
 # --- Menu lateral ---------------------------------------------------------------
 
 
