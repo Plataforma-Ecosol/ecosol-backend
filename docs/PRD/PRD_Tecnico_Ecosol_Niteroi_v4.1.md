@@ -344,6 +344,8 @@ A mesma garantia existe do lado do back-office: um teste irmão verifica que nen
 
 Base legal do tratamento, política de retenção e procedimento para solicitações de titulares (acesso, correção, exclusão).
 
+Documentado em [`docs/LGPD_Tratamento_de_Dados_Pessoais_v1.md`](../LGPD_Tratamento_de_Dados_Pessoais_v1.md) — rascunho a validar com a Casa Paul Singer. Até a aprovação, a condição acima continua valendo.
+
 # 7. Requisitos não funcionais
 
 - **Responsividade (mobile first):** plenamente utilizável em smartphones básicos.
