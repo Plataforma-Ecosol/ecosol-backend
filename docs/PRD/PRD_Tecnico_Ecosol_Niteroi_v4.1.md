@@ -260,7 +260,7 @@ Modelo de usuário customizado do Django para os papéis (Administrador e Públi
 
 ## 4.8. Seção do Saiba mais
 
-Bloco de conteúdo institucional da página "Saiba mais", editável pela equipe no Admin. Cada seção pertence a um de três subgrupos fixos (Casa Azul, Economia Solidária e ITES/IFRJ) e tem título, slug único, texto simples, imagem opcional, ordem e a flag `publicado`. Não guarda dado pessoal, e os contatos da Casa não moram aqui. Independente das outras entidades. Detalhes em `docs/PRD/PRD_Saiba_Mais_Secoes_por_Subgrupo_v1.md`.
+Bloco de conteúdo institucional da página "Saiba mais", editável pela equipe no Admin. Cada seção pertence a um de três subgrupos fixos (Casa Azul, Economia Solidária e ITES/IFRJ) e tem título, slug único, texto simples, imagem opcional, ordem e a flag `publicado`. Não guarda dado pessoal, e os contatos da Casa não moram aqui. Independente das outras entidades. Detalhes em `docs/PRD/PRD_Saiba_Mais_Secoes_por_Subgrupo_v1.md`. A API pública entrega só as seções publicadas, em `GET /api/saiba-mais/` (agrupadas por subgrupo, sem paginação) e `GET /api/saiba-mais/{slug}/`, como descrito em `docs/PRD/PRD_Saiba_Mais_Endpoint_Publico_v1.md`.
 
 # 5. As duas interfaces
 
