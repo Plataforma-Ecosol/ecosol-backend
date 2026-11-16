@@ -370,8 +370,8 @@ Substitui a planilha de cadastro por um formulário estruturado. Tudo em
 português; só entra quem tem conta — não há autocadastro.
 
 O visual é o do [Unfold](https://unfoldadmin.com/), com as cores, a logo e o
-nome da Casa Paul Singer, e o menu lateral é montado à mão em três grupos
-(Cadastros, Agenda e mapa, Acesso), cada item visível só para quem pode ver
+nome da Casa Paul Singer, e o menu lateral é montado à mão em quatro grupos
+(Cadastros, Agenda e mapa, Site, Acesso), cada item visível só para quem pode ver
 aquele cadastro. Tudo por configuração (`UNFOLD` no `config/settings.py`, cores
 em `config/identidade.py`), sem template nem CSS próprio. O link "Ver site
 público" usa `DJANGO_URL_SITE_PUBLICO` (sem a variável, `http://localhost:3000`).
@@ -410,6 +410,7 @@ grupo do Django existe e pode ser ligada depois, sem código.
 | **Categorias** | Slug automático; coluna com o número de coletivos |
 | **Eventos** | Galeria de imagens inline com miniatura; navegação por data |
 | **Pontos de Interesse** | Latitude/longitude em graus decimais, imagem de capa, vínculo opcional com coletivo |
+| **Saiba mais** | Seções por subgrupo (Casa Azul, Economia Solidária, ITES/IFRJ); reordenar arrastando as linhas; `publicado` editável direto na listagem; seção nova nasce despublicada |
 | **Usuários** | Contas da equipe (formulários de usuário do Django, com senha em hash) |
 | **Grupos** | Grupos de permissão do Django; sem uso no MVP (papel único) |
 
