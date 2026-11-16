@@ -10,6 +10,7 @@ from rede.models.coletivo import Coletivo, ColetivoSlugAnterior
 from rede.models.evento import Evento, ImagemEvento
 from rede.models.pessoa import Pessoa
 from rede.models.ponto_interesse import PontoDeInteresse
+from rede.models.secao_saiba_mais import SecaoSaibaMais
 from rede.models.usuario import Usuario
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "Evento",
     "ImagemEvento",
     "PontoDeInteresse",
+    "SecaoSaibaMais",
 ]
