@@ -33,6 +33,18 @@ def _itens_do_menu():
     ]
 
 
+def _itens_internos_do_menu():
+    """Os itens que abrem uma página do próprio Admin (link relativo).
+
+    O "Relatório" fica de fora: ele aponta para a Área da equipe no site.
+    """
+    return [item for item in _itens_do_menu() if str(item["link"]).startswith("/")]
+
+
+def _item_do_relatorio():
+    return next(item for item in _itens_do_menu() if item["title"] == "Relatório")
+
+
 @pytest.fixture
 def admin_logado(client, db):
     usuario = get_user_model().objects.create_superuser(
@@ -145,7 +157,7 @@ def test_menu_cobre_todo_model_registrado():
     Um model registrado numa fatia futura e esquecido no menu quebra aqui, em
     vez de ficar acessível só para quem souber a URL de cor.
     """
-    links_do_menu = {str(item["link"]) for item in _itens_do_menu()}
+    links_do_menu = {str(item["link"]) for item in _itens_internos_do_menu()}
     changelists = {
         reverse(f"admin:{model._meta.app_label}_{model._meta.model_name}_changelist")
         for model in django_admin.site._registry
@@ -154,9 +166,33 @@ def test_menu_cobre_todo_model_registrado():
     assert links_do_menu == changelists
 
 
-@pytest.mark.parametrize("item", _itens_do_menu(), ids=lambda item: item["title"])
+@pytest.mark.parametrize("item", _itens_internos_do_menu(), ids=lambda item: item["title"])
 def test_itens_do_menu_abrem(admin_logado, item):
     assert admin_logado.get(str(item["link"])).status_code == 200
+
+
+def test_relatorio_aponta_para_a_area_da_equipe_no_site():
+    """A página do Relatório vive no Next, e só lá a sessão do site vale."""
+    esperado = f"{django_settings.URL_SITE_PUBLICO.rstrip('/')}/equipe/relatorio"
+
+    assert _item_do_relatorio()["link"] == esperado
+
+
+def test_relatorio_so_aparece_para_a_equipe(db):
+    """`is_staff` é o critério de "equipe", o mesmo do Admin e da API da equipe."""
+    modelo = get_user_model()
+    da_equipe = modelo.objects.create_user(
+        username="equipe", password="senha-de-teste-123", is_staff=True
+    )
+    comum = modelo.objects.create_user(username="comum", password="senha-de-teste-123")
+    permissao = _item_do_relatorio()["permission"]
+
+    pedido = RequestFactory().get("/admin/")
+    pedido.user = da_equipe
+    assert permissao(pedido) is True
+
+    pedido.user = comum
+    assert permissao(pedido) is False
 
 
 def test_menu_respeita_a_permissao_de_ver(db):
@@ -170,7 +206,9 @@ def test_menu_respeita_a_permissao_de_ver(db):
     request = RequestFactory().get("/admin/")
     request.user = get_user_model().objects.get(pk=usuario.pk)  # sem cache de permissão
 
-    visiveis = {item["title"] for item in _itens_do_menu() if item["permission"](request)}
+    visiveis = {
+        item["title"] for item in _itens_internos_do_menu() if item["permission"](request)
+    }
 
     assert visiveis == {"Coletivos"}
 
@@ -186,7 +224,9 @@ def test_menu_mostra_o_item_para_quem_so_pode_editar(db):
     request = RequestFactory().get("/admin/")
     request.user = get_user_model().objects.get(pk=usuario.pk)  # sem cache de permissão
 
-    visiveis = {item["title"] for item in _itens_do_menu() if item["permission"](request)}
+    visiveis = {
+        item["title"] for item in _itens_internos_do_menu() if item["permission"](request)
+    }
 
     assert visiveis == {"Eventos"}
 
