@@ -44,6 +44,11 @@ services:
       # serviço vindo de `include` não funciona em todas as versões do Compose:
       # a do runner do CI recusa com "conflicts with imported resource".
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0,backend"
+      # O Next do compose (porta 3000) também abre o Admin, repassando
+      # `/admin/` ao Django (decisão 8.6 do PRD Técnico). No POST de login o
+      # Origin é o do site e o Host é `backend:8001`; sem o site nesta lista,
+      # o login pelo site responde 403. Só esta origem fixa, nunca curinga.
+      DJANGO_CSRF_TRUSTED_ORIGINS: "http://localhost:3000"
       # Aponta para o Postgres local do compose (não o Supabase).
       DATABASE_URL: "postgres://ecosol:ecosol@db:5432/ecosol"
       DJANGO_DB_POOLER: "False"
