@@ -30,6 +30,7 @@ from rede.models import (
     ImagemEvento,
     Pessoa,
     PontoDeInteresse,
+    SecaoSaibaMais,
     Usuario,
 )
 
@@ -447,3 +448,74 @@ class PontoDeInteresseAdmin(ModelAdmin):
         ("Controle", {"fields": ("ativo",)}),
         ("Metadados", {"fields": ("criado_em", "atualizado_em")}),
     )
+
+
+# --- Saiba mais -------------------------------------------------------------
+@admin.register(SecaoSaibaMais)
+class SecaoSaibaMaisAdmin(ModelAdmin):
+    """Conteúdo da página "Saiba mais", por subgrupo.
+
+    A equipe reordena arrastando as linhas (`ordering_field` do Unfold). Ao
+    soltar, o Unfold renumera a `ordem` de todas as linhas visíveis, na ordem em
+    que estão. A lista sai por subgrupo e depois por `ordem`, então a sequência
+    dentro de cada subgrupo se mantém. Por isso a lista não pode ser reordenada
+    pelo cabeçalho (`sortable_by`) nem paginada (`list_per_page`): nos dois
+    casos a renumeração embaralharia as seções, sem erro nenhum.
+    """
+
+    list_display = ("titulo", "subgrupo", "publicado", "atualizado_em")
+    # Publicar e despublicar sem abrir a seção, como o `ativo` do coletivo.
+    list_editable = ("publicado",)
+    list_filter = ("subgrupo", "publicado")
+    search_fields = ("titulo", "texto")
+    prepopulated_fields = {"slug": ("titulo",)}
+    readonly_fields = ("previa_da_imagem", "criado_em", "atualizado_em")
+    ordering_field = "ordem"
+    hide_ordering_field = True
+    sortable_by = ()
+    list_per_page = 100
+
+    fieldsets = (
+        (
+            "Conteúdo",
+            {
+                "fields": ("subgrupo", "titulo", "slug", "texto"),
+                "description": (
+                    "Texto simples: deixe uma linha em branco entre os parágrafos. "
+                    "Use só canais institucionais da Casa: nada de celular, e-mail "
+                    "pessoal ou nome de alguém da equipe. Evite trocar o slug de uma "
+                    "seção já publicada."
+                ),
+            },
+        ),
+        (
+            "Imagem",
+            {
+                "fields": ("imagem", "previa_da_imagem", "imagem_descricao"),
+                "description": (
+                    "Opcional. Só envie com autorização de uso de imagem das pessoas "
+                    "que aparecem nela. Na descrição, diga o que a imagem mostra: ela "
+                    "é lida por quem usa leitor de tela."
+                ),
+            },
+        ),
+        (
+            "Publicação",
+            {
+                "fields": ("publicado", "ordem"),
+                "description": (
+                    "Seção nova começa despublicada. Marque \"publicado\" quando o "
+                    "texto estiver revisado. A ordem também pode ser ajustada "
+                    "arrastando as linhas na lista."
+                ),
+            },
+        ),
+        ("Registro", {"fields": ("criado_em", "atualizado_em")}),
+    )
+
+    @admin.display(description="prévia")
+    def previa_da_imagem(self, obj):
+        """Miniatura da imagem já salva — a mesma do `previa_da_foto` do coletivo."""
+        if not obj.pk or not obj.imagem:
+            return "—"
+        return format_html('<img src="{}" style="height: 120px;" />', obj.imagem.url)

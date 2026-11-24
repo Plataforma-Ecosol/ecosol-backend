@@ -303,7 +303,7 @@ UNFOLD = {
         },
     },
     "SIDEBAR": {
-        # A busca do menu só filtra os itens dele pelo nome. Com 7 itens, era
+        # A busca do menu só filtra os itens dele pelo nome. Com 8 itens, era
         # mais ruído que ajuda.
         "show_search": False,
         # Menu montado à mão. Um model registrado e esquecido aqui some da
@@ -323,6 +323,13 @@ UNFOLD = {
                 "items": [
                     _item("Eventos", "event", "rede", "evento"),
                     _item("Pontos de interesse", "location_on", "rede", "pontodeinteresse"),
+                ],
+            },
+            {
+                # Conteúdo do site que não é cadastro da rede nem agenda.
+                "title": "Site",
+                "items": [
+                    _item("Saiba mais", "info", "rede", "secaosaibamais"),
                 ],
             },
             {
