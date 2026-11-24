@@ -15,12 +15,20 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from rede.filters import ColetivoFilter, EventoFilter, PontoDeInteresseFilter
-from rede.models import Categoria, Coletivo, ColetivoSlugAnterior, Evento, PontoDeInteresse
+from rede.models import (
+    Categoria,
+    Coletivo,
+    ColetivoSlugAnterior,
+    Evento,
+    PontoDeInteresse,
+    SecaoSaibaMais,
+)
 from rede.serializers import (
     CategoriaResumoSerializer,
     ColetivoSerializer,
     EventoSerializer,
     PontoDeInteresseSerializer,
+    SecaoSaibaMaisSerializer,
 )
 
 
@@ -139,6 +147,54 @@ class PontoDeInteresseViewSet(ReadOnlyModelViewSet):
     search_fields = ["nome", "descricao", "endereco"]
     ordering_fields = ["nome"]
     ordering = ["nome"]
+
+
+# --- Saiba mais -------------------------------------------------------------
+
+
+class SecaoSaibaMaisViewSet(ReadOnlyModelViewSet):
+    """Seções publicadas do Saiba mais: listagem agrupada e detalhe por slug.
+
+    A listagem não usa o envelope paginado, como os filtros: são poucas seções,
+    e o site precisa de todas de uma vez para montar cada página. Os três
+    subgrupos vêm sempre, na ordem dos `choices`, mesmo sem seção publicada —
+    o contrato não muda conforme o conteúdo, e o que fazer com um subgrupo
+    vazio é decisão do frontend.
+
+    Sem busca, filtro nem `ordering` na URL (`filter_backends = []`): a ordem é
+    a que a equipe definiu no Admin, e `?ordering=` a desfaria. Sem `?subgrupo=`
+    de propósito: uma URL só é uma entrada só no cache do ISR, e todas as
+    páginas do Saiba mais revalidam juntas.
+
+    Detalhe por slug sem histórico nem `301`, como o Evento: a seção é um bloco
+    dentro da página do subgrupo, e não um endereço que circula por aí.
+    """
+
+    permission_classes = [AllowAny]
+
+    lookup_field = "slug"
+
+    # `publicado=True` fixo, como o `ativo=True` das outras rotas: a seção
+    # despublicada não existe para o público, e o detalhe dela responde 404.
+    # O `order_by` é explícito para não depender do `Meta.ordering` do model.
+    queryset = SecaoSaibaMais.objects.filter(publicado=True).order_by("ordem", "id")
+    serializer_class = SecaoSaibaMaisSerializer
+    pagination_class = None
+    filter_backends = []
+
+    def list(self, request, *args, **kwargs):
+        """Uma query só: as seções vêm de uma vez e são agrupadas aqui."""
+        secoes = self.get_serializer(self.get_queryset(), many=True).data
+        return Response({
+            "subgrupos": [
+                {
+                    "slug": valor,
+                    "nome": rotulo,
+                    "secoes": [secao for secao in secoes if secao["subgrupo"] == valor],
+                }
+                for valor, rotulo in SecaoSaibaMais.Subgrupo.choices
+            ],
+        })
 
 
 # --- Opções dos filtros -----------------------------------------------------
