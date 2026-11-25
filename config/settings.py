@@ -231,7 +231,9 @@ LOGGING = {
 # Identidade da Casa Paul Singer no Admin, só por configuração: nenhum template
 # sobrescrito, nenhum CSS próprio. As cores vêm de `config/identidade.py`.
 #
-# Site público em outro domínio (Vercel). Sem a variável, vale o Next local.
+# Site público na Vercel. O Admin também abre pelo endereço dele (rewrite de
+# `/admin/` no Next, decisão 8.6), e é de lá que a Área da equipe enxerga a
+# sessão. Sem a variável, vale o Next local.
 URL_SITE_PUBLICO = env("DJANGO_URL_SITE_PUBLICO", default="http://localhost:3000")
 
 
@@ -337,6 +339,21 @@ UNFOLD = {
                 "items": [
                     _item("Usuários", "manage_accounts", "rede", "usuario"),
                     _item("Grupos", "admin_panel_settings", "auth", "group"),
+                ],
+            },
+            {
+                "title": "Equipe",
+                "items": [
+                    {
+                        "title": "Relatório",
+                        "icon": "bar_chart",
+                        # Endereço absoluto: a página vive no site (Área da
+                        # equipe no Next), não no Admin. Ela só enxerga a
+                        # sessão de quem logou pelo endereço do site
+                        # (decisão 8.6 do PRD Técnico).
+                        "link": f"{URL_SITE_PUBLICO.rstrip('/')}/equipe/relatorio",
+                        "permission": lambda request: request.user.is_staff,
+                    },
                 ],
             },
         ],

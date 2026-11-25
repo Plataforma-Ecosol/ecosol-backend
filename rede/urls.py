@@ -10,6 +10,9 @@ paginação nem parâmetros (ver `SecaoSaibaMaisViewSet`).
 
 As opções dos painéis de filtro (`/api/filtros/...`) ficam fora do router:
 não são recurso com lista e detalhe, são uma resposta só por listagem.
+
+A API da equipe (`/api/equipe/...`) também mora aqui, mas em views separadas
+(`rede/views_equipe.py`): exige sessão de equipe do Admin, sem cache.
 """
 from django.urls import path
 from rest_framework.routers import DefaultRouter
@@ -22,6 +25,7 @@ from rede.views import (
     PontoDeInteresseViewSet,
     SecaoSaibaMaisViewSet,
 )
+from rede.views_equipe import EuView
 
 router = DefaultRouter()
 router.register("coletivos", ColetivoViewSet, basename="coletivo")
@@ -34,5 +38,6 @@ router.register("saiba-mais", SecaoSaibaMaisViewSet, basename="secao-saiba-mais"
 urlpatterns = [
     path("filtros/coletivos/", FiltrosDeColetivosView.as_view(), name="filtros-coletivos"),
     path("filtros/eventos/", FiltrosDeEventosView.as_view(), name="filtros-eventos"),
+    path("equipe/eu/", EuView.as_view(), name="equipe-eu"),
     *router.urls,
 ]

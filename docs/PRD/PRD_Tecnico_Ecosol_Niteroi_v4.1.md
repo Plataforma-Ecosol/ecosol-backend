@@ -49,6 +49,7 @@ Centro Público de Referência em Economia Solidária (Casa Paul Singer) · ITES
   - [8.3. Autenticação por sessão do Django (substitui JWT)](#83-autenticação-por-sessão-do-django-substitui-jwt)
   - [8.4. Interface 2 pelo Django Admin no MVP](#84-interface-2-pelo-django-admin-no-mvp)
   - [8.5. Docker desde o início + deploy em serviços gerenciados](#85-docker-desde-o-início--deploy-em-serviços-gerenciados)
+  - [8.6. Área da equipe no Next pela mesma origem](#86-área-da-equipe-no-next-pela-mesma-origem)
 - [9. Contrato da API pública](#9-contrato-da-api-pública)
   - [9.1. Convenções gerais](#91-convenções-gerais)
   - [9.2. Endpoints de Coletivo](#92-endpoints-de-coletivo)
@@ -70,6 +71,8 @@ Centro Público de Referência em Economia Solidária (Casa Paul Singer) · ITES
 Esta subversão não muda decisões nem escopo — registra o andamento da construção. Já foram entregues o scaffold do backend, o ambiente Docker de desenvolvimento local, a configuração de repositório/CI/proteção da main, os models com conexão ao Supabase, os três endpoints públicos, a área administrativa no Django Admin e o **frontend público em Next.js** (Seção 11, itens 4, 5 e 6 — concluídos). O detalhamento está na seção "Status de implementação". As decisões das seções de 1 a 8 permanecem válidas e inalteradas.
 
 - **Ambiente de homologação no ar (novo).** A branch `staging` dos dois repositórios está publicada: o backend em <https://ecosol-backend-homolog.onrender.com> e o site em <https://ecosol-frontend.vercel.app>, com banco e Storage num projeto Supabase **próprio de homologação**, separado do de produção, e somente dados fictícios. É onde a Sprint Review acontece. O site de homologação não é indexável por buscadores. Detalhes na Seção 12.
+
+- **Área da equipe no Next pela mesma origem (nova decisão 8.6).** O site passa a responder `/admin/` e `/static/` repassando ao Django, para que o login do Admin valha também nas páginas da equipe no Next (o Relatório de coletivos). A autenticação continua inteira no Django; a 8.4 ganha uma nota. Origem: spike backend#24.
 
 - **Render para o Django (escolha registrada).** As Seções 2.5 e 8.5 citavam "Render/Railway". Fica o Render: o plano gratuito cobre um serviço ligado o mês inteiro, e o do Railway é só um crédito de teste. Não muda a decisão 8.5 — escolhe entre as duas opções que ela já previa.
 
@@ -131,7 +134,7 @@ A stack passou por revisão item a item à luz do modelo de dados e dos objetivo
 
 - **Renderização no servidor (SSR/ISR):** as páginas públicas (listagem, perfil, eventos, mapa) são renderizadas no servidor, o que as torna indexáveis por buscadores e gera prévia ao compartilhar links (ex.: WhatsApp) — atendendo diretamente à visibilidade dos coletivos.
 
-- **Camada exclusivamente pública e de leitura:** no MVP, o Next.js consome apenas endpoints GET da API. Não hospeda a área administrativa nem faz login (ver 2.2 e decisão 8.4).
+- **Camada exclusivamente pública e de leitura:** no MVP, o Next.js consome apenas endpoints GET da API. Não hospeda a área administrativa nem faz login (ver 2.2 e decisão 8.4). A exceção é a Área da equipe (`/equipe/...`), que só lê a sessão que o Django criou; o Admin abre pelo endereço do site por um repasse, mas continua sendo o Django (decisão 8.6).
 
 - **Responsividade (mobile first):** plenamente utilizável em smartphones básicos, dado o perfil do público.
 
@@ -411,6 +414,8 @@ Base legal do tratamento, política de retenção e procedimento para solicitaç
 
 **Consequência coerente:** com a Interface 2 no Django Admin, o Next.js fica só com a leitura pública e a autenticação vive inteira no Django (reforça 8.3).
 
+**Nota (decisão 8.6):** o Next deixa de ser só leitura pública e ganha a Área da equipe (o Relatório de coletivos e, depois, os insights). A autenticação continua inteira no Django: o Next não tem login, logout nem senha, só repassa o cookie de sessão ao Django e obedece a resposta.
+
 ## 8.5. Docker desde o início + deploy em serviços gerenciados
 
 **Decisão:** empacotar em Docker desde o início e, no MVP, fazer deploy em serviços gerenciados.
@@ -420,6 +425,42 @@ Base legal do tratamento, política de retenção e procedimento para solicitaç
 **Benefício futuro:** por já estar em Docker, migrar para VPS e auto-hospedagem é possível sem reescrever nada.
 
 **Nota (decisão consciente):** a Vercel é serviço comercial com limites de plano — caminho de menor atrito para o MVP, mas o mesmo container do Next.js pode rodar numa VPS caso o projeto queira 100% de independência de fornecedor no futuro.
+
+## 8.6. Área da equipe no Next pela mesma origem
+
+**Contexto:** o login do Admin grava o cookie de sessão (`sessionid`) no endereço do Django (Render). O site fica na Vercel, em outro domínio, e o navegador nunca entrega a um domínio o cookie de outro. Para o Next, toda pessoa era anônima, inclusive quem acabou de logar no Admin. Isso bloqueava a Área da equipe (Relatório de coletivos, frontend#66 a #70).
+
+**Decisão:** o site responde `/admin/` e `/static/` por um *rewrite* do Next, que repassa a requisição ao Django. O endereço oficial do Admin passa a ser o do site (`<site>/admin/`), e o cookie de sessão passa a ser gravado no endereço do site. As páginas `/equipe/...` leem esse cookie no servidor do Next e o repassam à API da equipe (`GET /api/equipe/eu/` e os endpoints que herdarem de `VisaoDaEquipe`), que responde 200 para `is_staff` e 403 para o resto.
+
+**O que não muda:**
+
+- O Django autentica e autoriza. Usuários, senhas e login são os do Admin; o Next só repassa o cookie e obedece a resposta.
+- `/api/*` fica fora do rewrite: o navegador continua sem falar com a API (Seção 10.1 do PRD do Frontend), e o backend continua sem CORS.
+- Sessão httpOnly, sem token no navegador (decisão 8.3). O JavaScript do site não lê o cookie.
+- "Equipe" é `is_staff`, o mesmo critério do Admin. Papéis mais finos ficam com o Spike de permissões (backend#31).
+
+**Caminhos descartados:**
+
+- **Subdomínios com cookie no domínio pai** (`admin.dominio`, `www.dominio`): depende de domínio próprio, ainda não registrado. Quando ele vier, o esquema desta decisão continua valendo; só mudam as variáveis.
+- **CORS com `SameSite=None`:** `vercel.app` e `onrender.com` estão na Public Suffix List, então o cookie conta como de terceiros e os navegadores o bloqueiam. Além disso, quebraria a regra de o navegador não falar com a API.
+
+**Consequências:**
+
+- `DJANGO_CSRF_TRUSTED_ORIGINS` passa a incluir o endereço do site: pelo rewrite, o `Origin` do POST de login é o do site e o `Host` é o do Django. Só a origem fixa; **nunca** `https://*.vercel.app`, que confiaria em qualquer projeto da Vercel. Por isso o login pelo site não funciona nos deploys de preview dos PRs, o que é aceito.
+- A senha passa pela Vercel: o HTTPS termina nela antes de seguir para o Render. É o mesmo provedor que já serve o site.
+- As duas portas do Admin ficam abertas: o endereço do Render continua respondendo, porque o rewrite depende dele, mas nenhum link aponta para ele. Quem logar por lá precisa logar de novo pelo site para abrir o Relatório. Bloquear o acesso direto fica para quando houver VPS, com o Django só na rede interna.
+- Respostas autenticadas nunca entram em cache: `never_cache` no Django, `cache: "no-store"` no Next.
+
+**Pontos verificados no spike.** "Local" é o `next start` contra o `runserver` na máquina; o que depende da Vercel e do Render se confirma no roteiro manual da homologação, anotado no PR.
+
+| Ponto | Resultado |
+| --- | --- |
+| Barra no fim de `/admin/login/` pelo rewrite, sem 301 em laço | Local: **`:caminho*` não devolve a barra final** (`/admin/login/` chegava como `/admin/login`, e o Admin redirecionava para o próprio login). Resolvido com uma regra `/admin/:caminho*/` → `.../admin/:caminho*/` antes da genérica. Sem laço. Homologação: *a confirmar* |
+| `Host` que a Vercel manda ao Render e `ALLOWED_HOSTS` | *a confirmar na homologação* |
+| `Location` dos redirecionamentos do Admin (login, logout, salvar) relativo | Local: relativos no login (volta a `/equipe/relatorio` pelo `?next=` do `action` do formulário; também em teste automatizado) e no salvar; o logout responde 200 com página própria. Sem `USE_X_FORWARDED_HOST`. Homologação: *a confirmar* |
+| Tamanho máximo de upload pelo rewrite | *a confirmar na homologação* |
+| Render acordando (cerca de 1 minuto): a Vercel espera ou devolve erro | *a confirmar na homologação* |
+| Cache da Vercel nas páginas do Admin (`x-vercel-cache` diferente de `HIT`) | Local: o Admin chega pelo rewrite com `Cache-Control: no-cache, no-store, must-revalidate, private`. Vercel: *a confirmar na homologação* |
 
 # 9. Contrato da API pública
 

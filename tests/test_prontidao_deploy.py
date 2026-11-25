@@ -134,8 +134,14 @@ def test_sem_variaveis_cookies_nao_exigem_https():
     assert django_settings.CSRF_COOKIE_SECURE is False
 
 
-def test_sem_variaveis_nenhuma_origem_extra_e_confiavel():
-    assert django_settings.CSRF_TRUSTED_ORIGINS == []
+def test_sem_variaveis_nenhuma_origem_remota_e_confiavel():
+    """No CI a lista é vazia; no compose, só o Next da máquina.
+
+    O compose confia em `http://localhost:3000` porque o site também abre o
+    Admin, repassando `/admin/` ao Django (decisão 8.6). Origem remota ou
+    curinga no ambiente local seria configuração de deploy vazando.
+    """
+    assert set(django_settings.CSRF_TRUSTED_ORIGINS) <= {"http://localhost:3000"}
 
 
 def test_sem_variaveis_cabecalho_do_proxy_nao_e_confiavel():

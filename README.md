@@ -70,7 +70,10 @@ docker compose up --build
 ```
 
 - App: http://127.0.0.1:8001/health/ → `{"status": "ok"}`
-- Admin: http://127.0.0.1:8001/admin/ (ver [Área administrativa](#área-administrativa))
+- Admin: http://127.0.0.1:8001/admin/ (ver [Área administrativa](#área-administrativa)).
+  Com o frontend no ar (compose do `ecosol-infra`), também em
+  http://localhost:3000/admin/ — é por lá que a [Área da equipe](#api-da-equipe)
+  enxerga o login.
 
 ### Supabase (sem Docker)
 
@@ -108,7 +111,7 @@ estáticos do Admin são servidos pelo WhiteNoise, sem serviço extra.
 | `DJANGO_DEBUG` | `False` |
 | `DJANGO_IGNORE_DOTENV` | `True` |
 | `DJANGO_ALLOWED_HOSTS` | `ecosol-backend-homolog.onrender.com` |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://ecosol-backend-homolog.onrender.com` (com `https://`, sem barra no fim) |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://ecosol-backend-homolog.onrender.com,https://ecosol-frontend.vercel.app` (com `https://`, sem barra no fim, separadas por vírgula; a segunda é o login pelo site) |
 | `DJANGO_ATRAS_DE_PROXY_HTTPS` | `True` |
 | `DJANGO_COOKIES_SEGUROS` | `True` |
 | `DATABASE_URL` | Transaction pooler (porta 6543) do projeto **ecosol-homolog** |
@@ -119,7 +122,7 @@ estáticos do Admin são servidos pelo WhiteNoise, sem serviço extra.
 | `AWS_STORAGE_BUCKET_NAME` | `divulgacao` |
 | `AWS_S3_ENDPOINT_URL` | `https://<ref-do-homolog>.supabase.co/storage/v1/s3` |
 | `AWS_S3_REGION_NAME` | `sa-east-1` |
-| `DJANGO_URL_SITE_PUBLICO` | `https://ecosol-frontend.vercel.app` (link "Ver site público" do Admin) |
+| `DJANGO_URL_SITE_PUBLICO` | `https://ecosol-frontend.vercel.app` (link "Ver site público" e item "Relatório" do Admin) |
 
 Os valores de verdade ficam **só no painel do Render**. Não defina `PORT`: o
 Render injeta sozinho. O host do serviço também entra em `ALLOWED_HOSTS` sem
@@ -127,11 +130,20 @@ ninguém digitar (`RENDER_EXTERNAL_HOSTNAME`), mas o CSRF **não**: se o nome do
 serviço mudar, ajuste `DJANGO_CSRF_TRUSTED_ORIGINS`, senão o login do Admin dá
 403.
 
-As três variáveis de deploy (`DJANGO_ATRAS_DE_PROXY_HTTPS`,
-`DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_COOKIES_SEGUROS`) ficam desligadas por
-padrão, e o compose e o CI não as definem. **Não ligue nenhuma delas no local**:
-confiar no cabeçalho do proxy sem proxy na frente deixaria qualquer cliente se
-declarar HTTPS, e cookie `Secure` em HTTP simplesmente não volta.
+Duas variáveis de deploy (`DJANGO_ATRAS_DE_PROXY_HTTPS` e
+`DJANGO_COOKIES_SEGUROS`) ficam desligadas por padrão, e o compose e o CI não as
+definem. **Não ligue nenhuma das duas no local**: confiar no cabeçalho do proxy
+sem proxy na frente deixaria qualquer cliente se declarar HTTPS, e cookie
+`Secure` em HTTP simplesmente não volta.
+
+`DJANGO_CSRF_TRUSTED_ORIGINS` é diferente: no local ela vale
+`http://localhost:3000` (no compose e no `.env.example`). O Admin também abre
+pelo endereço do site, que repassa `/admin/` ao Django; no POST de login o
+`Origin` é o do site e o `Host` é o do backend, e sem o site na lista o login
+responde 403. Confiar numa origem fixa da própria máquina é seguro. **Nunca use
+curinga** (`https://*.vercel.app`): confiaria em qualquer projeto da Vercel. Por
+isso o login pelo site não funciona nos deploys de preview dos PRs, o que é
+aceito (decisão 8.6 do PRD Técnico).
 
 ### Migrations e superusuário da homologação
 
@@ -408,16 +420,50 @@ publicado. Não há `?subgrupo=` de propósito: com uma URL só, o ISR do site
 guarda uma entrada de cache só, e todas as páginas do Saiba mais revalidam
 juntas.
 
+## API da equipe
+
+Separada da API pública (`rede/views_equipe.py`): só entra quem tem sessão de
+equipe no Admin. Quem a chama é o **servidor do Next**, na Área da equipe,
+repassando o cookie `sessionid`; o navegador continua sem falar com a API, e o
+backend continua sem CORS.
+
+| Rota | Descrição |
+|---|---|
+| `GET /api/equipe/eu/` | Diz se a sessão é de equipe; devolve `{"nome": "..."}` (nome curto, ou o usuário) |
+
+| Situação | Status |
+|---|---|
+| Sem sessão | `403` |
+| Logado sem `is_staff` | `403` |
+| Logado com `is_staff` | `200` |
+
+- **Só sessão.** Basic Auth e qualquer outro esquema são recusados.
+- **Sem cache.** Toda resposta sai com `Cache-Control: no-store, private` (e
+  afins): uma resposta de quem está logado não pode ser servida a outra pessoa.
+- **Anônimo recebe 403, não 401**: com só `SessionAuthentication` o DRF não
+  define `WWW-Authenticate`. O frontend trata os dois da mesma forma.
+- Todo endpoint novo da equipe herda de `VisaoDaEquipe` (os do Relatório,
+  backend#56 a #58, inclusive). "Equipe" é `is_staff`; papéis mais finos ficam
+  para o Spike de permissões (backend#31).
+
 ## Área administrativa
 
-O back-office da equipe do Centro Público, em **http://localhost:8001/admin/**.
+O back-office da equipe do Centro Público. O endereço oficial é o **do site**,
+`/admin/` (na homologação, `https://ecosol-frontend.vercel.app/admin/`; no
+local, http://localhost:3000/admin/): o Next repassa a requisição ao Django, e o
+cookie de sessão fica gravado no endereço do site, onde a Área da equipe o
+enxerga (decisão 8.6 do PRD Técnico). O endereço do backend
+(http://localhost:8001/admin/, ou o do Render) continua respondendo, mas nenhum
+link aponta para ele, e quem logar por lá precisa logar de novo pelo site para
+abrir o Relatório.
 Substitui a planilha de cadastro por um formulário estruturado. Tudo em
 português; só entra quem tem conta — não há autocadastro.
 
 O visual é o do [Unfold](https://unfoldadmin.com/), com as cores, a logo e o
 nome da Casa Paul Singer, e o menu lateral é montado à mão em quatro grupos
-(Cadastros, Agenda e mapa, Site, Acesso), cada item visível só para quem pode ver
-aquele cadastro. Tudo por configuração (`UNFOLD` no `config/settings.py`, cores
+(Cadastros, Agenda e mapa, Acesso, Equipe). Cada item de cadastro aparece só
+para quem pode ver aquele cadastro; o "Relatório" (grupo Equipe) aparece para
+toda a equipe (`is_staff`) e abre `/equipe/relatorio` no site, não no Admin. Tudo por configuração (`UNFOLD` no `config/settings.py`, cores
 em `config/identidade.py`), sem template nem CSS próprio. O link "Ver site
 público" usa `DJANGO_URL_SITE_PUBLICO` (sem a variável, `http://localhost:3000`).
 
