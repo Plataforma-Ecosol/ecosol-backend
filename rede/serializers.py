@@ -31,7 +31,14 @@ um serializer atravessa uma FK para outra entidade pública: ver
 """
 from rest_framework import serializers
 
-from rede.models import Categoria, Coletivo, Evento, ImagemEvento, PontoDeInteresse
+from rede.models import (
+    Categoria,
+    Coletivo,
+    Evento,
+    ImagemEvento,
+    PontoDeInteresse,
+    SecaoSaibaMais,
+)
 
 
 class CategoriaResumoSerializer(serializers.ModelSerializer):
@@ -250,3 +257,32 @@ class PontoDeInteresseSerializer(serializers.ModelSerializer):
         if instance.coletivo is None or not instance.coletivo.ativo:
             dados["coletivo"] = None
         return dados
+
+
+# --- Saiba mais -------------------------------------------------------------
+
+
+class SecaoSaibaMaisSerializer(serializers.ModelSerializer):
+    """Seção do Saiba mais como ela aparece na API pública.
+
+    O mesmo serializer serve à listagem agrupada e ao detalhe, para o frontend
+    declarar um tipo só. Lista explícita, como todo serializer público.
+    `publicado` não sai pela mesma regra do `ativo`: é a chave de visibilidade.
+    `ordem` não sai porque a posição na lista já é a ordem definida no Admin, e
+    expor o número convidaria o cliente a reordenar por conta própria.
+
+    `imagem` segue a foto do coletivo: `null` sem arquivo, URL absoluta com.
+    """
+
+    class Meta:
+        model = SecaoSaibaMais
+        fields = [
+            "id",
+            "slug",
+            "subgrupo",
+            "titulo",
+            "texto",
+            "imagem",
+            "imagem_descricao",
+            "atualizado_em",
+        ]

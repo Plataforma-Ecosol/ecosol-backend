@@ -32,6 +32,7 @@ Centro Público de Referência em Economia Solidária (Casa Paul Singer) · ITES
   - [4.5. Ponto de Interesse — o que aparece no mapa](#45-ponto-de-interesse--o-que-aparece-no-mapa)
   - [4.6. Usuário](#46-usuário)
   - [4.7. Relações entre entidades](#47-relações-entre-entidades)
+  - [4.8. Seção do Saiba mais](#48-seção-do-saiba-mais)
 - [5. As duas interfaces](#5-as-duas-interfaces)
   - [5.1. Interface Pública (leitura, sem login)](#51-interface-pública-leitura-sem-login)
   - [5.2. Interface Administrativa (Django Admin, com login)](#52-interface-administrativa-django-admin-com-login)
@@ -259,6 +260,10 @@ Modelo de usuário customizado do Django para os papéis (Administrador e Públi
 - Eventos são independentes, mantidos pelo administrador.
 
 - **Futuro (fora do MVP):** registro de conexões/parcerias entre coletivos, como entidade própria.
+
+## 4.8. Seção do Saiba mais
+
+Bloco de conteúdo institucional da página "Saiba mais", editável pela equipe no Admin. Cada seção pertence a um de três subgrupos fixos (Casa Azul, Economia Solidária e ITES/IFRJ) e tem título, slug único, texto simples, imagem opcional, ordem e a flag `publicado`. Não guarda dado pessoal, e os contatos da Casa não moram aqui. Independente das outras entidades. Detalhes em `docs/PRD/PRD_Saiba_Mais_Secoes_por_Subgrupo_v1.md`. A API pública entrega só as seções publicadas, em `GET /api/saiba-mais/` (agrupadas por subgrupo, sem paginação) e `GET /api/saiba-mais/{slug}/`, como descrito em `docs/PRD/PRD_Saiba_Mais_Endpoint_Publico_v1.md`.
 
 # 5. As duas interfaces
 

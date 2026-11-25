@@ -4,6 +4,10 @@ Incluídas em `config/urls.py` sob o prefixo `/api/`. As três entidades
 públicas do sistema — Coletivo, Evento e Ponto de Interesse — entram no mesmo
 router, com o mesmo contrato de paginação, busca e filtros.
 
+As seções do Saiba mais também estão no router, por terem lista e detalhe,
+mas fogem desse contrato: a listagem vem agrupada por subgrupo, sem
+paginação nem parâmetros (ver `SecaoSaibaMaisViewSet`).
+
 As opções dos painéis de filtro (`/api/filtros/...`) ficam fora do router:
 não são recurso com lista e detalhe, são uma resposta só por listagem.
 
@@ -19,6 +23,7 @@ from rede.views import (
     FiltrosDeColetivosView,
     FiltrosDeEventosView,
     PontoDeInteresseViewSet,
+    SecaoSaibaMaisViewSet,
 )
 from rede.views_equipe import EuView
 
@@ -28,6 +33,7 @@ router.register("eventos", EventoViewSet, basename="evento")
 router.register(
     "pontos-de-interesse", PontoDeInteresseViewSet, basename="ponto-de-interesse",
 )
+router.register("saiba-mais", SecaoSaibaMaisViewSet, basename="secao-saiba-mais")
 
 urlpatterns = [
     path("filtros/coletivos/", FiltrosDeColetivosView.as_view(), name="filtros-coletivos"),

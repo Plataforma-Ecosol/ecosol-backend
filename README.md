@@ -210,7 +210,9 @@ $env:DJANGO_DB_DIRECT="True"; python manage.py migrate
 Somente leitura (`GET`) e sem autenticação — qualquer método de escrita
 responde `405`. Chaves em `snake_case`, datas em ISO 8601 (`AAAA-MM-DD`) e
 data-hora em ISO 8601 com fuso (`2026-08-15T18:00:00-03:00`), listas com o
-envelope do DRF (`count`, `next`, `previous`, `results`).
+envelope do DRF (`count`, `next`, `previous`, `results`). Duas exceções ao
+envelope, por serem respostas curtas que o site precisa inteiras: as opções
+dos filtros e a listagem do Saiba mais, agrupada por subgrupo.
 
 | Rota | Descrição |
 |---|---|
@@ -222,6 +224,8 @@ envelope do DRF (`count`, `next`, `previous`, `results`).
 | `GET /api/pontos-de-interesse/{id}/` | Detalhe de um ponto, buscado pelo id |
 | `GET /api/filtros/coletivos/` | Opções do painel de filtros de coletivos (categorias e bairros) |
 | `GET /api/filtros/eventos/` | Opções do painel de filtros da agenda (bairros) |
+| `GET /api/saiba-mais/` | Seções **publicadas** do Saiba mais, agrupadas por subgrupo, sem paginação |
+| `GET /api/saiba-mais/{slug}/` | Detalhe de uma seção, buscada pelo slug |
 
 `ativo` **não** é parâmetro em nenhuma rota: é a chave de visibilidade
 pública, com que a equipe do Centro Público tira um registro do ar. Aceitá-lo
@@ -371,9 +375,50 @@ enquanto o link de um evento tem a vida útil do evento.
    objeto que já tem em mãos.
 
 > **Dica para o frontend do mapa:** peça `?page_size=100` e desenhe todos os
-> marcadores de uma vez. O teto de 100 continua valendo — não há exceção de
-> "listagem sem paginação". No dia em que a rede passar de 100 pontos de
-> referência, o mapa pagina como qualquer outro cliente.
+> marcadores de uma vez. O teto de 100 continua valendo: o mapa não ganha a
+> exceção de "listagem sem paginação" do Saiba mais, porque pontos crescem com
+> a rede. No dia em que a rede passar de 100 pontos de referência, o mapa
+> pagina como qualquer outro cliente.
+
+### Saiba mais
+
+A listagem não aceita parâmetro nenhum: sem paginação, busca, filtro ou
+`ordering`. Parâmetro na URL é ignorado.
+
+```json
+{
+  "subgrupos": [
+    {"slug": "casa-azul", "nome": "Casa Azul", "secoes": [ ... ]},
+    {"slug": "economia-solidaria", "nome": "Economia Solidária", "secoes": [ ... ]},
+    {"slug": "ites-ifrj", "nome": "ITES/IFRJ", "secoes": []}
+  ]
+}
+```
+
+**Campos da seção** (iguais na listagem e no detalhe): `id`, `slug`,
+`subgrupo`, `titulo`, `texto`, `imagem` (URL absoluta ou `null`),
+`imagem_descricao` (texto, pode vir vazio sem imagem), `atualizado_em`.
+
+**Quatro regras**
+
+1. **Os três subgrupos vêm sempre**, na ordem do menu do site, mesmo sem seção
+   publicada (`secoes: []`). O `slug` do subgrupo é o mesmo valor do campo
+   `subgrupo` da seção e o mesmo da rota `/saiba-mais/<subgrupo>` do site.
+2. **Só o publicado sai.** `publicado` funciona como o `ativo` das outras
+   rotas: é filtro fixo, não é parâmetro e não aparece na resposta. A seção
+   despublicada some da listagem, e o detalhe dela responde `404`, como o de
+   um slug que não existe.
+3. **A ordem é a do Admin**: dentro do subgrupo, por `ordem` e, no empate, por
+   id. A `ordem` não sai na resposta, porque a posição na lista já é a ordem.
+   Por isso também não há `ordering`: quem ordena o Saiba mais é a equipe.
+4. **Texto simples.** Sem HTML nem Markdown. Os parágrafos vêm separados por
+   linha em branco (`\n\n`), e o site mostra o texto com `whitespace-pre-line`.
+
+Trocar o slug de uma seção quebra o detalhe antigo, sem `301`, como no
+evento: a seção é um bloco dentro da página do subgrupo, e não um endereço
+publicado. Não há `?subgrupo=` de propósito: com uma URL só, o ISR do site
+guarda uma entrada de cache só, e todas as páginas do Saiba mais revalidam
+juntas.
 
 ## API da equipe
 
@@ -456,6 +501,7 @@ grupo do Django existe e pode ser ligada depois, sem código.
 | **Categorias** | Slug automático; coluna com o número de coletivos |
 | **Eventos** | Galeria de imagens inline com miniatura; navegação por data |
 | **Pontos de Interesse** | Latitude/longitude em graus decimais, imagem de capa, vínculo opcional com coletivo |
+| **Saiba mais** | Seções por subgrupo (Casa Azul, Economia Solidária, ITES/IFRJ); reordenar arrastando as linhas; `publicado` editável direto na listagem; seção nova nasce despublicada |
 | **Usuários** | Contas da equipe (formulários de usuário do Django, com senha em hash) |
 | **Grupos** | Grupos de permissão do Django; sem uso no MVP (papel único) |
 

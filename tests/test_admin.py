@@ -15,6 +15,7 @@ import pytest
 from django.contrib import admin as django_admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from unfold import forms as unfold_forms
 from unfold.admin import ModelAdmin as UnfoldModelAdmin
@@ -27,8 +28,10 @@ from rede.models import (
     Evento,
     Pessoa,
     PontoDeInteresse,
+    SecaoSaibaMais,
     Usuario,
 )
+from tests.helpers import PNG_MINIMO
 
 pytestmark = pytest.mark.django_db
 
@@ -73,6 +76,8 @@ def registros():
         "usuario": get_user_model().objects.create_user(
             username="voluntaria", password="outra-senha-123"
         ),
+        # Criada pela carga inicial da migration 0007.
+        "secaosaibamais": SecaoSaibaMais.objects.get(slug="quem-somos"),
     }
 
 
@@ -359,3 +364,115 @@ def test_troca_de_senha_pelo_admin_grava_hash(admin_logado, registros):
 def test_telas_do_grupo_abrem(admin_logado, tela):
     """Os testes de fumaça acima só cobrem o app `rede`."""
     assert admin_logado.get(reverse(f"admin:auth_group_{tela}")).status_code == 200
+
+
+# --- Saiba mais (card 62) ---------------------------------------------------
+# A carga inicial (migration 0007) já deixa três seções no banco, uma por
+# subgrupo. Os testes que salvam a lista filtram um subgrupo, para o formset
+# cobrir só as seções que eles conhecem.
+LISTA_SAIBA_MAIS = reverse("admin:rede_secaosaibamais_changelist")
+
+
+def _formset_da_lista(secoes):
+    """O POST que a lista editável envia ao salvar, com `ordem` e `publicado`.
+
+    Caixa ausente do POST = desmarcada, como no teste do `ativo` do coletivo.
+    """
+    dados = {
+        "_save": "Salvar",
+        "form-TOTAL_FORMS": str(len(secoes)),
+        "form-INITIAL_FORMS": str(len(secoes)),
+        "form-MIN_NUM_FORMS": "0",
+        "form-MAX_NUM_FORMS": "1000",
+    }
+    for indice, (secao, ordem, publicado) in enumerate(secoes):
+        dados[f"form-{indice}-id"] = str(secao.pk)
+        dados[f"form-{indice}-ordem"] = str(ordem)
+        if publicado:
+            dados[f"form-{indice}-publicado"] = "on"
+    return dados
+
+
+def test_lista_do_saiba_mais_filtra_por_subgrupo(admin_logado):
+    resposta = admin_logado.get(LISTA_SAIBA_MAIS, {"subgrupo__exact": "ites-ifrj"})
+
+    slugs = [secao.slug for secao in resposta.context["cl"].result_list]
+    assert slugs == ["a-ites"]
+
+
+def test_reordenar_pela_lista_grava_a_nova_ordem(admin_logado):
+    """O arrastar do Unfold só renumera os campos; quem grava é este POST."""
+    quem_somos = SecaoSaibaMais.objects.get(slug="quem-somos")
+    historia = SecaoSaibaMais.objects.create(
+        subgrupo=SecaoSaibaMais.Subgrupo.CASA_AZUL, titulo="Nossa história",
+        slug="nossa-historia", texto="Texto.", ordem=2, publicado=True,
+    )
+    url = f"{LISTA_SAIBA_MAIS}?subgrupo__exact=casa-azul"
+
+    resposta = admin_logado.post(
+        url, _formset_da_lista([(quem_somos, 1, True), (historia, 0, True)])
+    )
+
+    assert resposta.status_code == 302
+    slugs = SecaoSaibaMais.objects.filter(subgrupo="casa-azul").values_list(
+        "slug", flat=True
+    )
+    assert list(slugs) == ["nossa-historia", "quem-somos"]
+
+
+def test_publicado_alternado_pela_lista(admin_logado):
+    secao = SecaoSaibaMais.objects.get(slug="a-ites")
+    url = f"{LISTA_SAIBA_MAIS}?subgrupo__exact=ites-ifrj"
+
+    assert admin_logado.post(url, _formset_da_lista([(secao, 1, False)])).status_code == 302
+    secao.refresh_from_db()
+    assert secao.publicado is False
+
+    assert admin_logado.post(url, _formset_da_lista([(secao, 1, True)])).status_code == 302
+    secao.refresh_from_db()
+    assert secao.publicado is True
+
+
+def test_imagem_sem_descricao_volta_com_erro_no_campo(admin_logado):
+    """O `clean()` do model vale também pelo formulário do Admin."""
+    dados = {
+        "subgrupo": "casa-azul",
+        "titulo": "Fachada",
+        "slug": "fachada",
+        "texto": "Texto.",
+        "imagem": SimpleUploadedFile("fachada.png", PNG_MINIMO, content_type="image/png"),
+        "imagem_descricao": "",
+        "ordem": "0",
+    }
+
+    resposta = admin_logado.post(reverse("admin:rede_secaosaibamais_add"), dados)
+
+    assert resposta.status_code == 200
+    assert "imagem_descricao" in resposta.context["adminform"].form.errors
+    assert not SecaoSaibaMais.objects.filter(slug="fachada").exists()
+
+
+def test_formulario_do_saiba_mais_mostra_os_avisos(admin_logado, registros):
+    secao = registros["secaosaibamais"]
+
+    resposta = admin_logado.get(
+        reverse("admin:rede_secaosaibamais_change", args=[secao.pk])
+    )
+
+    html = resposta.content.decode()
+    assert "canais institucionais" in html
+    assert "autorização de uso de imagem" in html
+
+
+def test_lista_do_saiba_mais_protege_o_arrastar():
+    """O Unfold renumera a `ordem` das linhas visíveis, na ordem em que estão.
+
+    Reordenar pelo cabeçalho de uma coluna ou paginar a lista faria essa
+    renumeração embaralhar as seções sem erro nenhum. Quem mexer nestas
+    configurações precisa saber disso.
+    """
+    secao_admin = django_admin.site._registry[SecaoSaibaMais]
+
+    assert secao_admin.ordering_field == "ordem"
+    assert secao_admin.sortable_by == ()
+    assert secao_admin.list_per_page >= 100
