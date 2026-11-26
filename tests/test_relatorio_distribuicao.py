@@ -160,15 +160,21 @@ def test_por_bairro_junta_as_grafias_e_poe_o_sem_bairro_no_fim(equipe, rede):
 def test_empate_criado_ao_juntar_grafias_vai_em_ordem_alfabetica(equipe):
     """O banco ordena as linhas antes de as grafias se juntarem.
 
-    "Zona Sul" (2) chega antes de "Barreto" (1) e "barreto" (1); juntas, as
+    "Zona Sul" (3) chega antes de "Barreto" (2) e "barreto" (1); juntas, as
     duas grafias empatam com Zona Sul, e quem desempata é a ordem alfabética.
+
+    As grafias não podem empatar entre si: no empate, quem vira o nome do
+    grupo é a ordem do banco, e ela muda com a collation. O Postgres do CI
+    (`en_US.utf8`) põe "barreto" antes de "Barreto"; um em `C.UTF-8`, o
+    contrário.
     """
-    for indice, bairro in enumerate(["Zona Sul", "Zona Sul", "Barreto", "barreto"]):
+    bairros = ["Zona Sul", "Zona Sul", "Zona Sul", "Barreto", "Barreto", "barreto"]
+    for indice, bairro in enumerate(bairros):
         cadastrar(f"Coletivo {indice}", no_fuso(2026, 5, 1 + indice), bairro=bairro)
 
     por_bairro = equipe.get(URL).json()["por_bairro"]
 
-    assert _totais(por_bairro, "bairro") == [("Barreto", 2), ("Zona Sul", 2)]
+    assert _totais(por_bairro, "bairro") == [("Barreto", 3), ("Zona Sul", 3)]
 
 
 def test_por_bairro_soma_o_total(equipe, rede):
