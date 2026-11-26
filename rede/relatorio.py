@@ -4,6 +4,9 @@ Só contagens: nenhuma função daqui devolve registro, nome de coletivo ou dado
 de pessoa. Quem chama é a API da equipe (`rede/views_equipe.py`), sempre atrás
 da `VisaoDaEquipe`.
 
+Dois endpoints usam este módulo: a distribuição dos coletivos (backend#57) e
+os indicadores gerais (backend#56).
+
 O recorte é o **cadastro**. `de` e `ate` olham `criado_em`, o dia em que o
 coletivo entrou no sistema, e não `data_inicio`, o dia em que o grupo começou.
 Coletivo inativo conta: o Relatório mede a rede cadastrada, não o que está no
@@ -14,8 +17,16 @@ from django.db.models.functions import TruncMonth
 from django_filters import rest_framework as filters
 
 from rede.filters import FORMATO_ISO
-from rede.models import Coletivo
+from rede.models import Coletivo, Pessoa
 from rede.views import ordem_alfabetica
+
+#: Pessoas cadastradas a partir das quais o coletivo conta como apto.
+#:
+#: É a única parte calculável da regra do PRD Técnico 4.1 ("no mínimo 3
+#: pessoas e interfamiliar"): família não é entidade do modelo, então o caráter
+#: interfamiliar continua verificação humana. É indicador, não validação, e
+#: nada impede cadastrar um coletivo com menos pessoas.
+MINIMO_DE_PESSOAS_PARA_APTIDAO = 3
 
 
 class FiltroDoRelatorio(filters.FilterSet):
@@ -141,4 +152,59 @@ def distribuicao(coletivos):
         "por_bairro": por_bairro(coletivos),
         "por_categoria": por_categoria(coletivos),
         "por_mes": por_mes(coletivos),
+    }
+
+
+# --- Indicadores gerais (backend#56) -----------------------------------------
+
+
+def por_situacao(coletivos):
+    """Coletivos por situação do cadastro, uma linha para cada valor do model.
+
+    Na ordem de `Coletivo.Situacao`, com zero na situação sem coletivo: os
+    cartões do Relatório mostram sempre as mesmas situações. `slug` é o valor
+    que o filtro `situacao` da distribuição aceita.
+    """
+    totais = dict(
+        coletivos.values_list("situacao")
+        .annotate(total=Count("pk", distinct=True))
+        .order_by()
+    )
+    return [
+        {"slug": valor, "nome": rotulo, "total": totais.get(valor, 0)}
+        for valor, rotulo in Coletivo.Situacao.choices
+    ]
+
+
+def aptos(coletivos):
+    """Quantos coletivos têm ao menos `MINIMO_DE_PESSOAS_PARA_APTIDAO` pessoas.
+
+    Calculado das pessoas cadastradas, a cada consulta: não existe campo de
+    aptidão marcado à mão, e o número muda sozinho quando a equipe cadastra
+    ou remove uma pessoa.
+    """
+    return (
+        coletivos.annotate(pessoas_cadastradas=Count("pessoas", distinct=True))
+        .filter(pessoas_cadastradas__gte=MINIMO_DE_PESSOAS_PARA_APTIDAO)
+        .count()
+    )
+
+
+def indicadores_gerais(coletivos):
+    """Resposta de `GET /api/equipe/relatorio/indicadores/`. Quatro consultas, fixas.
+
+    `aptos + nao_aptos` é sempre `total_coletivos`. `total_membros` conta as
+    pessoas dos coletivos do recorte, inclusive as de coletivo inativo.
+    """
+    total = coletivos.count()
+    com_minimo = aptos(coletivos)
+    return {
+        "total_coletivos": total,
+        "por_situacao": por_situacao(coletivos),
+        "aptidao": {
+            "minimo_de_pessoas": MINIMO_DE_PESSOAS_PARA_APTIDAO,
+            "aptos": com_minimo,
+            "nao_aptos": total - com_minimo,
+        },
+        "total_membros": Pessoa.objects.filter(coletivo__in=coletivos).count(),
     }

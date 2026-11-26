@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from rede.models import Coletivo
-from rede.relatorio import FiltroDoRelatorio, distribuicao
+from rede.relatorio import FiltroDoRelatorio, distribuicao, indicadores_gerais
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -57,3 +57,15 @@ class DistribuicaoDosColetivosView(VisaoDaEquipe):
         if not filtro.is_valid():
             raise translate_validation(filtro.errors)
         return Response(distribuicao(filtro.qs))
+
+
+class IndicadoresGeraisView(VisaoDaEquipe):
+    """Totais da rede para os cartões do Relatório (backend#56).
+
+    Total de coletivos, total por situação, aptos x não aptos (calculado das
+    pessoas cadastradas) e total de membros. Só contagens (ver
+    `rede/relatorio.py`). Sem filtros: são os números da rede inteira.
+    """
+
+    def get(self, request):
+        return Response(indicadores_gerais(Coletivo.objects.all()))
