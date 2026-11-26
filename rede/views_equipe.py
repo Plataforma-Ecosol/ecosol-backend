@@ -9,10 +9,14 @@ site (decisão 8.6 do PRD Técnico). O navegador nunca as chama direto.
 """
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
+from django_filters.utils import translate_validation
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from rede.models import Coletivo
+from rede.relatorio import FiltroDoRelatorio, distribuicao
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -37,3 +41,19 @@ class EuView(VisaoDaEquipe):
     def get(self, request):
         usuario = request.user
         return Response({"nome": usuario.get_short_name() or usuario.get_username()})
+
+
+class DistribuicaoDosColetivosView(VisaoDaEquipe):
+    """Distribuição dos coletivos para os gráficos do Relatório (backend#57).
+
+    Por bairro, por categoria e por mês de cadastro, só com contagens (ver
+    `rede/relatorio.py`). Filtros opcionais: `de` e `ate` (período do cadastro)
+    e `situacao`. Parâmetro inválido responde 400, no mesmo formato da API
+    pública.
+    """
+
+    def get(self, request):
+        filtro = FiltroDoRelatorio(request.query_params, queryset=Coletivo.objects.all())
+        if not filtro.is_valid():
+            raise translate_validation(filtro.errors)
+        return Response(distribuicao(filtro.qs))
