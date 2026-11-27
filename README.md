@@ -430,6 +430,7 @@ backend continua sem CORS.
 | Rota | Descrição |
 |---|---|
 | `GET /api/equipe/eu/` | Diz se a sessão é de equipe; devolve `{"nome": "..."}` (nome curto, ou o usuário) |
+| `GET /api/equipe/relatorio/distribuicao/` | Relatório: coletivos por bairro, por categoria e por mês de cadastro, para os gráficos |
 
 | Situação | Status |
 |---|---|
@@ -445,6 +446,61 @@ backend continua sem CORS.
 - Todo endpoint novo da equipe herda de `VisaoDaEquipe` (os do Relatório,
   backend#56 a #58, inclusive). "Equipe" é `is_staff`; papéis mais finos ficam
   para o Spike de permissões (backend#31).
+
+### Relatório: distribuição dos coletivos
+
+`GET /api/equipe/relatorio/distribuicao/` devolve só contagens, nunca um
+coletivo ou uma pessoa. As contas ficam em `rede/relatorio.py`.
+
+**Parâmetros (todos opcionais)**
+
+| Parâmetro | Tipo | Comportamento |
+|---|---|---|
+| `de` | data | Coletivos cadastrados a partir deste dia, inclusive |
+| `ate` | data | Coletivos cadastrados até este dia, inclusive |
+| `situacao` | string | `regular`, `em_transicao` ou `encerrado`. Valor fora da lista → `400` |
+
+As datas seguem a regra da agenda: só `AAAA-MM-DD`, comparando a **data** no
+fuso de São Paulo, e não o instante. `ate=2026-03-31` inclui o cadastro das
+23h30 do dia 31. Data inválida → `400`, com o nome do parâmetro na resposta.
+
+```json
+{
+  "total": 12,
+  "por_bairro": [
+    { "bairro": "Centro", "total": 5 },
+    { "bairro": "Fonseca", "total": 4 },
+    { "bairro": null, "total": 3 }
+  ],
+  "por_categoria": [
+    { "id": 1, "nome": "Alimentação", "slug": "alimentacao", "total": 7 },
+    { "id": 3, "nome": "Artesanato", "slug": "artesanato", "total": 4 },
+    { "id": null, "nome": null, "slug": null, "total": 2 }
+  ],
+  "por_mes": [
+    { "mes": "2026-09", "total": 4 },
+    { "mes": "2026-10", "total": 0 },
+    { "mes": "2026-11", "total": 8 }
+  ]
+}
+```
+
+1. **O recorte é o cadastro.** `de`, `ate` e `por_mes` olham `criado_em`, o
+   dia em que o coletivo entrou no sistema, e não `data_inicio`, o dia em que
+   o grupo começou. Coletivo inativo conta: o Relatório mede a rede
+   cadastrada, não o que está no ar.
+2. **Bairro tem a regra das opções de filtro.** "Centro" e "centro" são um
+   bairro só, com a grafia mais usada. Quem não tem bairro vem por último, com
+   `bairro: null`, e a soma de `por_bairro` é sempre o `total`.
+3. **Categoria conta o coletivo em cada uma.** Um coletivo em duas categorias
+   entra nas duas, então a soma pode passar do `total`. Quem não tem categoria
+   vem por último, com `id`, `nome` e `slug` nulos. Categoria sem coletivo no
+   recorte não aparece.
+4. **A série de meses não tem buraco.** Vai do primeiro ao último mês com
+   cadastro, com `total: 0` nos meses vazios do meio. O mês é o de São Paulo:
+   um cadastro das 23h30 de 31/03 é de março, embora em UTC já seja abril.
+5. **Ordem:** do maior total para o menor; empate em ordem alfabética,
+   ignorando acento e maiúscula. As linhas `null` vêm sempre por último.
 
 ## Área administrativa
 

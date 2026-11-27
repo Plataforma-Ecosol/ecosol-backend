@@ -25,7 +25,7 @@ from rede.views import (
     PontoDeInteresseViewSet,
     SecaoSaibaMaisViewSet,
 )
-from rede.views_equipe import EuView
+from rede.views_equipe import DistribuicaoDosColetivosView, EuView
 
 router = DefaultRouter()
 router.register("coletivos", ColetivoViewSet, basename="coletivo")
@@ -39,5 +39,10 @@ urlpatterns = [
     path("filtros/coletivos/", FiltrosDeColetivosView.as_view(), name="filtros-coletivos"),
     path("filtros/eventos/", FiltrosDeEventosView.as_view(), name="filtros-eventos"),
     path("equipe/eu/", EuView.as_view(), name="equipe-eu"),
+    path(
+        "equipe/relatorio/distribuicao/",
+        DistribuicaoDosColetivosView.as_view(),
+        name="equipe-relatorio-distribuicao",
+    ),
     *router.urls,
 ]

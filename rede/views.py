@@ -200,7 +200,7 @@ class SecaoSaibaMaisViewSet(ReadOnlyModelViewSet):
 # --- Opções dos filtros -----------------------------------------------------
 
 
-def _ordem_alfabetica(texto):
+def ordem_alfabetica(texto):
     """Chave de ordenação que ignora acento e maiúscula.
 
     Sem ela, "Ícaro" iria para depois de "Zona Norte": a ordem crua dos
@@ -232,7 +232,7 @@ def bairros_em_uso(queryset):
     for linha in contagem:
         # `setdefault`: a ordem por `-total` faz a grafia mais usada chegar primeiro.
         por_grafia.setdefault(linha["bairro"].casefold(), linha["bairro"])
-    return sorted(por_grafia.values(), key=_ordem_alfabetica)
+    return sorted(por_grafia.values(), key=ordem_alfabetica)
 
 
 class FiltrosDeColetivosView(APIView):
