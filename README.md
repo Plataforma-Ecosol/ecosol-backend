@@ -431,6 +431,7 @@ backend continua sem CORS.
 |---|---|
 | `GET /api/equipe/eu/` | Diz se a sessão é de equipe; devolve `{"nome": "..."}` (nome curto, ou o usuário) |
 | `GET /api/equipe/relatorio/distribuicao/` | Relatório: coletivos por bairro, por categoria e por mês de cadastro, para os gráficos |
+| `GET /api/equipe/relatorio/indicadores/` | Relatório: totais da rede (coletivos, por situação, aptos x não aptos, membros) |
 
 | Situação | Status |
 |---|---|
@@ -501,6 +502,38 @@ fuso de São Paulo, e não o instante. `ate=2026-03-31` inclui o cadastro das
    um cadastro das 23h30 de 31/03 é de março, embora em UTC já seja abril.
 5. **Ordem:** do maior total para o menor; empate em ordem alfabética,
    ignorando acento e maiúscula. As linhas `null` vêm sempre por último.
+
+### Relatório: indicadores gerais
+
+`GET /api/equipe/relatorio/indicadores/` devolve os totais dos cartões do
+Relatório. Não tem parâmetros: são os números da rede inteira.
+
+```json
+{
+  "total_coletivos": 12,
+  "por_situacao": [
+    { "slug": "regular", "nome": "Regular", "total": 9 },
+    { "slug": "em_transicao", "nome": "Em transição", "total": 2 },
+    { "slug": "encerrado", "nome": "Encerrado", "total": 1 }
+  ],
+  "aptidao": { "minimo_de_pessoas": 3, "aptos": 8, "nao_aptos": 4 },
+  "total_membros": 57
+}
+```
+
+1. **Coletivo inativo conta**, como na distribuição: em `total_coletivos`, na
+   aptidão e com as pessoas dele em `total_membros`.
+2. **`por_situacao` tem sempre todas as situações do model**, na ordem de
+   `Coletivo.Situacao` e com `total: 0` na que não tiver coletivo. O `slug` é o
+   valor que o filtro `situacao` da distribuição aceita.
+3. **Apto é o coletivo com pelo menos 3 pessoas cadastradas**
+   (`MINIMO_DE_PESSOAS_PARA_APTIDAO`, em `rede/relatorio.py`), calculado a cada
+   consulta. Não existe campo de aptidão marcado à mão. É a única parte
+   calculável da regra do PRD Técnico 4.1 ("no mínimo 3 pessoas e
+   interfamiliar"): família não é entidade do modelo, e o caráter interfamiliar
+   continua verificação humana. É indicador, não validação, e nada impede
+   cadastrar um coletivo com menos pessoas. `aptos + nao_aptos` é sempre
+   `total_coletivos`.
 
 ## Área administrativa
 
